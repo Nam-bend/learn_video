@@ -14,8 +14,8 @@ ENV/
 .env
 
 # Project specific
-tmp/
-tmp/uploads/
+tmp/uploads/*
+!tmp/uploads/.gitkeep
 
 # IDEs
 .vscode/
