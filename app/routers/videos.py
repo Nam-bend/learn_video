@@ -27,3 +27,12 @@ async def get_video_info(video_id: str, db: AsyncSession = Depends(get_db)):
     if not video:
         raise HTTPException(404, "Không tìm thấy video")
     return {"id": str(video.id), "title": video.title, "status": video.status,"transcript": video.transcript }
+
+@router.get("/videos")
+async def list_videos(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Video).order_by(Video.created_at.desc()))
+    videos = result.scalars().all()
+    return [
+        {"id": str(v.id), "title": v.title, "status": v.status, "source_type": v.source_type, "transcript": v.transcript}
+        for v in videos
+    ]

@@ -50,3 +50,16 @@ async def chat(video_id: str, payload: dict, db: AsyncSession = Depends(get_db))
     except Exception as e:
         print(f"🔥 OpenAI Error: {e}")
         raise HTTPException(500, f"Lỗi gọi AI: {str(e)}")
+
+@router.get("/chat/{video_id}")
+async def get_chat_history(video_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(ChatMessage)
+        .where(ChatMessage.video_id == uuid.UUID(video_id))
+        .order_by(ChatMessage.created_at.asc())
+    )
+    messages = result.scalars().all()
+    return [
+        {"role": m.role, "content": m.content, "created_at": m.created_at.isoformat()}
+        for m in messages
+    ]
