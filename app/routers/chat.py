@@ -30,7 +30,7 @@ async def chat(video_id: str, payload: dict, db: AsyncSession = Depends(get_db))
 
     try:
         response = await client.chat.completions.create(
-            model="gpt-5.2-codex",  # ← chỉ cần tên model gọn thôi
+            model="gpt-4o",  # ← chỉ cần tên model gọn thôi
             messages=[
                 {"role": "system", "content": "Bạn là một trợ lý học tập. Hãy dựa vào nội dung video được cung cấp để trả lời câu hỏi của người dùng."},
                 {"role": "user", "content": f"Nội dung video: {transcript_text}\n\nCâu hỏi: {question}"}
