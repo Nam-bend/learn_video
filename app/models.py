@@ -31,3 +31,29 @@ class ChatMessage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     video: Mapped["Video"] = relationship(back_populates="messages")
+
+
+class Quiz(Base):
+    __tablename__ = "quizzes"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    video_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("videos.id"))
+    questions: Mapped[list | None] = mapped_column(JSONB, nullable=True)  # List of questions
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    video: Mapped["Video"] = relationship()
+
+
+class QuizAttempt(Base):
+    __tablename__ = "quiz_attempts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    video_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("videos.id"))
+    quiz_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("quizzes.id"), nullable=True)
+    score: Mapped[int] = mapped_column()
+    total: Mapped[int] = mapped_column()
+    wrong_answers: Mapped[list | None] = mapped_column(JSONB, nullable=True)  # Detailed info on wrong answers
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    video: Mapped["Video"] = relationship()
+    quiz: Mapped["Quiz"] = relationship()
