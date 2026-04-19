@@ -685,6 +685,200 @@
       background: var(--accent2);
     }
 
+    /* Tabs */
+    .pane-tabs {
+      display: flex;
+      gap: 16px;
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      flex-shrink: 0;
+    }
+
+    .tab {
+      padding: 12px 4px;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all .2s;
+    }
+
+    .tab:hover {
+      color: var(--text);
+    }
+
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    /* Quiz */
+    .quiz-pane {
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    .quiz-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .quiz-q {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .q-text {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .q-options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .q-opt {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all .15s;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .q-opt:hover {
+      border-color: var(--accent);
+      background: rgba(212, 245, 106, .05);
+    }
+
+    .q-opt.selected {
+      border-color: var(--accent);
+      background: rgba(212, 245, 106, .15);
+      color: var(--accent);
+    }
+
+    .q-opt.correct {
+      border-color: var(--accent2);
+      background: rgba(91, 240, 160, .1);
+      color: var(--accent2);
+    }
+
+    .q-opt.wrong {
+      border-color: #f07070;
+      background: rgba(240, 112, 112, .1);
+      color: #f07070;
+    }
+
+    .q-explain {
+      font-size: 12px;
+      color: var(--text-dim);
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, .03);
+      border-radius: 6px;
+      border-left: 2px solid var(--accent);
+      margin-top: 4px;
+    }
+
+    .quiz-footer {
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--bg);
+    }
+
+    .score-badge {
+      font-family: var(--mono);
+      font-size: 14px;
+      color: var(--accent);
+      font-weight: bold;
+    }
+
+    /* Quiz Stats & History */
+    .quiz-analysis {
+      background: rgba(212, 245, 106, .05);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+
+    .analysis-title {
+      font-family: var(--serif);
+      font-size: 16px;
+      color: var(--accent);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .analysis-content {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text-dim);
+    }
+
+    .analysis-content b {
+      color: var(--text);
+    }
+
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .history-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .history-item:hover {
+      border-color: var(--accent);
+    }
+
+    .hist-score {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--accent);
+    }
+
+    .hist-date {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
     /* Toast */
     .toast {
       position: fixed;
@@ -776,26 +970,57 @@
         </div>
 
         <div class="chat-pane">
-          <div class="pane-header">
-            <div>
-              <div class="pane-title">hỏi đáp AI</div>
-              <div class="pane-title-main">Chat với video</div>
+          <div class="pane-tabs">
+            <div class="tab active" id="tabChat" onclick="switchRightTab('chat')">Hỏi đáp AI</div>
+            <div class="tab" id="tabQuiz" onclick="switchRightTab('quiz')">Ôn tập (Quiz)</div>
+          </div>
+
+          <div id="contentChat" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+            <div class="chat-messages" id="chatMessages">
+              <div class="empty-state" style="height:100%">
+                <div class="empty-icon">💬</div>
+                <p>Chọn video đã transcribe để bắt đầu chat</p>
+              </div>
+            </div>
+            <div class="chat-input-area">
+              <textarea class="chat-textarea" id="chatInput" rows="1" placeholder="Hỏi về nội dung video..."
+                onkeydown="handleKey(event)" oninput="autoResize(this)" disabled></textarea>
+              <button class="btn-send" id="sendBtn" onclick="sendMessage()" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="#0e0f11" stroke-width="2.5">
+                  <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+                </svg>
+              </button>
             </div>
           </div>
-          <div class="chat-messages" id="chatMessages">
-            <div class="empty-state" style="height:100%">
-              <div class="empty-icon">💬</div>
-              <p>Chọn video đã transcribe để bắt đầu chat</p>
+
+          <div id="contentQuiz" style="display:none;flex-direction:column;flex:1;overflow:hidden;" class="quiz-pane">
+            <div class="pane-tabs"
+              style="border-top:1px solid var(--border); border-bottom:none; background:var(--surface)">
+              <div class="tab active" id="subTabQuiz" onclick="switchQuizSubTab('questions')" style="font-size:10px">Câu
+                hỏi</div>
+              <div class="tab" id="subTabAnalysis" onclick="switchQuizSubTab('analysis')" style="font-size:10px">Thống
+                kê & Nhận xét</div>
             </div>
-          </div>
-          <div class="chat-input-area">
-            <textarea class="chat-textarea" id="chatInput" rows="1" placeholder="Hỏi về nội dung video..."
-              onkeydown="handleKey(event)" oninput="autoResize(this)" disabled></textarea>
-            <button class="btn-send" id="sendBtn" onclick="sendMessage()" disabled>
-              <svg viewBox="0 0 24 24" fill="none" stroke="#0e0f11" stroke-width="2.5">
-                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
-              </svg>
-            </button>
+            <div class="quiz-body" id="quizBody">
+              <div class="empty-state">
+                <div class="empty-icon">📝</div>
+                <p>Đang kiểm tra dữ liệu Quiz...</p>
+                <button class="btn btn-primary" id="genQuizBtn" onclick="generateQuiz()" disabled>Tạo Quiz ngay</button>
+              </div>
+            </div>
+
+            <div class="quiz-body" id="analysisBody" style="display:none">
+              <div id="aiAnalysisContent"></div>
+              <div class="sidebar-label" style="margin-top:20px">Lịch sử làm bài</div>
+              <div class="history-list" id="quizHistoryList"></div>
+            </div>
+
+            <div class="quiz-footer" id="quizFooter" style="display:none">
+              <div class="score-badge" id="quizScore"></div>
+              <button class="btn btn-primary" id="submitQuizBtn" onclick="submitQuiz()">Nộp bài</button>
+              <button class="btn btn-ghost" id="retryQuizBtn" style="display:none" onclick="generateQuiz()">Làm bộ
+                mới</button>
+            </div>
           </div>
         </div>
       </div>
@@ -819,7 +1044,9 @@
     // ── State ──
     let videos = [];      // [{id, title, source_type, source_ref, status, transcript}]
     let currentId = null;
+    let currentQuizId = null;
     let pollTimer = null;
+    let userAnswers = [];
 
     // ── Init ──
     window.onload = () => {
@@ -971,6 +1198,13 @@
 
       // Load chat history
       fetchChatHistory(id);
+
+      // Reset Quiz UI
+      currentQuizId = null;
+      userAnswers = [];
+      document.getElementById('genQuizBtn').disabled = (v.status !== 'done');
+      loadLatestQuiz(id);
+      fetchQuizAnalysis(id);
 
       if (v.status === 'transcribing') startPolling(id);
     }
@@ -1213,6 +1447,224 @@
         btn.textContent = '✓ Copied';
         setTimeout(() => btn.textContent = 'Copy', 1600);
       });
+    }
+
+    function switchRightTab(tab) {
+      const isChat = tab === 'chat';
+      document.getElementById('contentChat').style.display = isChat ? 'flex' : 'none';
+      document.getElementById('contentQuiz').style.display = isChat ? 'none' : 'flex';
+      document.getElementById('tabChat').className = 'tab' + (isChat ? ' active' : '');
+      document.getElementById('tabQuiz').className = 'tab' + (isChat ? '' : ' active');
+    }
+
+    function switchQuizSubTab(tab) {
+      const isQuest = tab === 'questions';
+      const hasQuiz = !!currentQuizId;
+      document.getElementById('quizBody').style.display = isQuest ? 'flex' : 'none';
+      document.getElementById('analysisBody').style.display = isQuest ? 'none' : 'block';
+      document.getElementById('subTabQuiz').className = 'tab' + (isQuest ? ' active' : '');
+      document.getElementById('subTabAnalysis').className = 'tab' + (isQuest ? '' : ' active');
+      document.getElementById('quizFooter').style.display = (isQuest && hasQuiz) ? 'flex' : 'none';
+    }
+
+    async function loadLatestQuiz(id) {
+      const body = document.getElementById('quizBody');
+      const footer = document.getElementById('quizFooter');
+      const v = videos.find(x => x.id === id);
+      if (!v || v.status !== 'done') {
+        body.innerHTML = `<div class="empty-state"><div class="empty-icon">📝</div><p>Cần transcribe xong video để tạo Quiz</p></div>`;
+        footer.style.display = 'none';
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/api/quiz/${id}`);
+        const data = await res.json();
+        if (data.questions && data.questions.length > 0) {
+          currentQuizId = data.id;
+          renderQuiz(data.questions);
+        } else {
+          body.innerHTML = `<div class="empty-state"><div class="empty-icon">📝</div><p>Sẵn sàng tạo câu hỏi ôn tập!</p><button class="btn btn-primary" onclick="generateQuiz()">Tạo Quiz ngay</button></div>`;
+          footer.style.display = 'none';
+        }
+      } catch (e) { console.error(e); }
+    }
+
+    async function generateQuiz() {
+      if (!currentId) return;
+      const body = document.getElementById('quizBody');
+      const footer = document.getElementById('quizFooter');
+
+      body.innerHTML = `<div class="empty-state"><div class="typing-dots"><span></span><span></span><span></span></div><p>AI đang soạn câu hỏi...</p></div>`;
+      footer.style.display = 'none';
+
+      try {
+        const res = await fetch(`${API}/api/quiz/generate/${currentId}`, { method: 'POST' });
+        if (!res.ok) throw new Error('Lỗi tạo Quiz');
+        const data = await res.json();
+        currentQuizId = data.id;
+        userAnswers = new Array(data.questions.length).fill(null);
+        renderQuiz(data.questions);
+      } catch (err) {
+        body.innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div><p>${err.message}</p><button class="btn btn-primary" onclick="generateQuiz()">Thử lại</button></div>`;
+        toast(err.message, 'err');
+      }
+    }
+
+    function renderQuiz(questions, results = null) {
+      const body = document.getElementById('quizBody');
+      const footer = document.getElementById('quizFooter');
+      footer.style.display = 'flex';
+      document.getElementById('quizScore').textContent = '';
+      document.getElementById('submitQuizBtn').style.display = results ? 'none' : 'block';
+      document.getElementById('retryQuizBtn').style.display = results ? 'block' : 'none';
+
+      if (!userAnswers.length) userAnswers = new Array(questions.length).fill(null);
+
+      body.innerHTML = questions.map((q, i) => {
+        const isWrong = results && results.wrong_answers.find(w => w.question === q.question);
+
+        return `
+      <div class="quiz-q" id="q-${i}">
+        <div class="q-text">${i + 1}. ${esc(q.question)}</div>
+        <div class="q-options">
+          ${q.options.map((opt, oi) => {
+          let cls = 'q-opt';
+          if (results) {
+            if (oi === q.answer) cls += ' correct';
+            else if (isWrong && oi === isWrong.user_answer) cls += ' wrong';
+          } else {
+            if (userAnswers[i] === oi) cls += ' selected';
+          }
+          return `<div class="${cls}" onclick="${results ? '' : `selectOption(${i}, ${oi})`}">${esc(opt)}</div>`;
+        }).join('')}
+        </div>
+        ${results && isWrong ? `<div class="q-explain">💡 <b>Giải thích:</b> ${esc(q.explanation)}</div>` : ''}
+      </div>
+    `;
+      }).join('');
+
+      if (results) {
+        document.getElementById('quizScore').textContent = `Kết quả: ${results.score}/${results.total}`;
+        body.scrollTop = 0;
+      }
+    }
+
+    function selectOption(qIdx, optIdx) {
+      userAnswers[qIdx] = optIdx;
+      // Update UI only for this question
+      const qDiv = document.getElementById(`q-${qIdx}`);
+      const opts = qDiv.querySelectorAll('.q-opt');
+      opts.forEach((opt, i) => {
+        opt.className = 'q-opt' + (i === optIdx ? ' selected' : '');
+      });
+    }
+
+    async function submitQuiz() {
+      if (userAnswers.includes(null)) {
+        toast('Vui lòng hoàn thành hết các câu hỏi!');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/api/quiz/submit/${currentId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ quiz_id: currentQuizId, answers: userAnswers })
+        });
+        const results = await res.json();
+
+        // Tìm lại quiz content để render kết quả
+        const qRes = await fetch(`${API}/api/quiz/${currentId}`);
+        const qData = await qRes.json();
+
+        renderQuiz(qData.questions, results);
+        fetchQuizAnalysis(currentId); // Refresh stats
+        toast('Đã nộp bài!');
+      } catch (e) {
+        toast('Lỗi nộp bài', 'err');
+      }
+    }
+
+    async function fetchQuizAnalysis(id) {
+      const histList = document.getElementById('quizHistoryList');
+      const aiContent = document.getElementById('aiAnalysisContent');
+
+      try {
+        const res = await fetch(`${API}/api/quiz/analysis/${id}`);
+        const data = await res.json();
+
+        if (data.analysis) {
+          aiContent.innerHTML = `
+            <div class="quiz-analysis">
+              <div class="analysis-title">✨ Nhận xét từ AI</div>
+              <div class="analysis-content">${data.analysis.replace(/\n/g, '<br>')}</div>
+            </div>
+            ${data.stats ? `
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px">
+                <div class="quiz-q" style="padding:12px; align-items:center">
+                  <div class="pane-title" style="margin:0">Điểm trung bình</div>
+                  <div class="pane-title-main" style="color:var(--accent); font-size:20px">${data.stats.avg_score}/10</div>
+                </div>
+                <div class="quiz-q" style="padding:12px; align-items:center">
+                  <div class="pane-title" style="margin:0">Tổng số lần làm</div>
+                  <div class="pane-title-main" style="color:var(--accent2); font-size:20px">${data.stats.total_attempts}</div>
+                </div>
+              </div>
+            ` : ''}
+          `;
+        } else {
+          aiContent.innerHTML = '<p style="color:var(--muted); font-size:13px">Hệ thống chưa có đủ dữ liệu để phân tích.</p>';
+        }
+
+        // Fetch history list
+        const hRes = await fetch(`${API}/api/quiz/history/${id}`);
+        const history = await hRes.json();
+        renderQuizHistory(history);
+
+      } catch (e) { console.error(e); }
+    }
+
+    function renderQuizHistory(history) {
+      const list = document.getElementById('quizHistoryList');
+      if (!history || !history.length) {
+        list.innerHTML = '<p style="color:var(--muted); font-size:12px">Chưa có lịch sử làm bài.</p>';
+        return;
+      }
+      list.innerHTML = history.slice(0, 10).map(h => `
+        <div class="history-item">
+          <div>
+            <div class="hist-score">Điểm: ${h.score}/${h.total}</div>
+            <div class="hist-date">${new Date(h.created_at).toLocaleString()}</div>
+          </div>
+          <button class="btn-sm ghost" style="padding:4px 8px; font-size:10px" onclick="viewPastQuiz('${h.id}')">Xem lại</button>
+        </div>
+      `).join('');
+    }
+
+    async function viewPastQuiz(attemptId) {
+      toast('Đang tải kết quả cũ...');
+      try {
+        const res = await fetch(`${API}/api/quiz/history/${currentId}`);
+        const history = await res.json();
+        const attempt = history.find(a => a.id === attemptId);
+        if (!attempt) return;
+
+        if (!attempt.quiz_id) {
+          toast('Lần làm bài này quá cũ, không còn dữ liệu câu hỏi.', 'err');
+          return;
+        }
+
+        const qRes = await fetch(`${API}/api/quiz/instance/${attempt.quiz_id}`);
+        if (!qRes.ok) throw new Error();
+        const qData = await qRes.json();
+
+        switchQuizSubTab('questions');
+        renderQuiz(qData.questions, attempt);
+        toast('Đang xem kết quả lịch sử');
+      } catch (e) {
+        toast('Không thể tải lại câu hỏi cũ', 'err');
+      }
     }
 
     // ── Helpers ───────────────────────────────────────
