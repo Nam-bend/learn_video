@@ -6,7 +6,6 @@ import { ContentHeader } from "@/components/content/content-header"
 import { VideoPlayer } from "@/components/content/video-player"
 import { TranscriptSection } from "@/components/content/transcript-section"
 import { AiToolsSidebar } from "@/components/content/ai-tools-sidebar"
-import { ChatInput } from "@/components/content/chat-input"
 import { ChevronsRight } from "lucide-react"
 import { HeaderActions } from "@/components/dashboard/header-actions"
 
@@ -45,29 +44,71 @@ function SidebarAwareHeader() {
   return <HeaderActions />
 }
 
+import { useSearchParams } from "next/navigation"
+import { useEffect, useState } from "react"
+import { api } from "@/lib/api"
+
 export default function ContentPage() {
+  const searchParams = useSearchParams()
+  const videoId = searchParams.get("id")
+  const [video, setVideo] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!videoId) {
+      setLoading(false)
+      return
+    }
+
+    const fetchVideo = async () => {
+      setLoading(true)
+      try {
+        const data = await api.videos.get(videoId)
+        setVideo(data)
+      } catch (error) {
+        console.error("Failed to fetch video:", error)
+        setVideo(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchVideo()
+  }, [videoId])
+
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset className="bg-[#fafafa]">
+      <SidebarInset className="bg-[#fafafa] flex flex-col h-screen">
         <CollapsedHeader />
-        <div className="flex flex-1 overflow-hidden">
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-3 border-b border-neutral-100">
-              <ContentHeader />
+        <div className="flex-1 grid grid-cols-2 min-h-0 overflow-hidden">
+          <div className="flex flex-col overflow-hidden border-r border-neutral-100">
+            <div className="flex shrink-0 items-center justify-between px-5 py-3 border-b border-neutral-100">
+              <ContentHeader title={video?.title} />
               <SidebarAwareHeader />
             </div>
             <div className="flex-1 overflow-y-auto">
-              <div className="mx-auto max-w-4xl px-5 py-5">
-                <VideoPlayer />
-                <TranscriptSection />
-              </div>
+              {loading ? (
+                <div className="flex h-full items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+                </div>
+              ) : video ? (
+                <div className="px-6 py-6">
+                  <VideoPlayer video={video} />
+                  <TranscriptSection videoId={video.id} initialTranscript={video.transcript} />
+                </div>
+              ) : (
+                <div className="flex h-full items-center justify-center text-muted-foreground">
+                  Không tìm thấy video
+                </div>
+              )}
             </div>
           </div>
-          <AiToolsSidebar />
+          <div className="flex flex-col overflow-hidden bg-white min-h-0">
+            <AiToolsSidebar videoId={videoId || ""} />
+          </div>
         </div>
-        <ChatInput />
       </SidebarInset>
     </SidebarProvider>
   )
 }
+

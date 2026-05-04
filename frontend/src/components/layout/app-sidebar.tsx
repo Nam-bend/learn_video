@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useState, useEffect } from "react"
 import {
   Plus,
   Search,
@@ -15,7 +16,12 @@ import {
   ChevronsLeft,
   ChevronDown,
   Globe,
+  Video as VideoIcon,
+  Trash2,
+  Edit3,
+  MoreHorizontal
 } from "lucide-react"
+import { api } from "@/lib/api"
 import {
   Sidebar,
   SidebarContent,
@@ -157,6 +163,53 @@ function UserProfile() {
 
 export function AppSidebar() {
   const { toggleSidebar } = useSidebar()
+  const [recentVideos, setRecentVideos] = useState<any[]>([])
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const handleClickOutside = () => setOpenMenuId(null)
+    window.addEventListener("click", handleClickOutside)
+    return () => window.removeEventListener("click", handleClickOutside)
+  }, [])
+
+  useEffect(() => {
+    const fetchRecent = async () => {
+      try {
+        const data = await api.videos.list()
+        setRecentVideos(data.slice(0, 5)) // Lấy 5 vdeo gần nhất
+      } catch (error) {
+        console.error("Failed to fetch sidebar videos:", error)
+      }
+    }
+    fetchRecent()
+  }, [])
+
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (confirm("Bạn có chắc chắn muốn xóa video này?")) {
+      try {
+        await api.videos.delete(id)
+        setRecentVideos(prev => prev.filter(v => v.id !== id))
+      } catch (err) {
+        alert("Không thể xóa video")
+      }
+    }
+  }
+
+  const handleRename = async (e: React.MouseEvent, id: string, currentTitle: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const newTitle = prompt("Nhập tiêu đề mới:", currentTitle)
+    if (newTitle && newTitle !== currentTitle) {
+      try {
+        await api.videos.update(id, { title: newTitle })
+        setRecentVideos(prev => prev.map(v => v.id === id ? { ...v, title: newTitle } : v))
+      } catch (err) {
+        alert("Không thể đổi tên video")
+      }
+    }
+  }
 
   return (
     <Sidebar
@@ -214,21 +267,58 @@ export function AppSidebar() {
             <li className="w-full">
               <button className={sectionLabelClass}>
                 <span>Gần đây</span>
-                <ChevronRight className="size-3.5 rotate-90 opacity-0 transition-all duration-200 group-hover:opacity-100" />
+                <ChevronRight className="size-3.5 rotate-90 opacity-100 transition-all duration-200" />
               </button>
-            </li>
+              <div className="mt-1 flex w-full flex-col space-y-[1px] px-1">
+                {recentVideos.length > 0 ? (
+                  recentVideos.map((video) => (
+                    <div key={video.id} className="group relative">
+                      <Link href={`/content?id=${video.id}`} className="block w-full">
+                        <button className={cn(menuItemClass, "h-9 py-1 pr-10")}>
+                          <VideoIcon className="mr-2 size-3.5 shrink-0 text-primary/50 group-hover:text-primary" />
+                          <span className="truncate text-[13px]">{video.title || "Chưa có tiêu đề"}</span>
+                        </button>
+                      </Link>
 
-            <li className="w-full">
-              <button className={sectionLabelClass}>
-                <span>Khoảng cách</span>
-                <ChevronRight className="size-3.5 rotate-90 opacity-0 transition-all duration-200 group-hover:opacity-100" />
-              </button>
-              <div className="flex w-full flex-col space-y-[1px]">
-                <button className={menuItemClass}>
-                  <Plus className="mr-2 size-4" />
-                  <span>Không gian mới</span>
-                </button>
-                <WorkspaceItem label="Không gian của Fuoc" active />
+                      {/* More Button */}
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setOpenMenuId(openMenuId === video.id ? null : video.id)
+                        }}
+                        className="absolute right-1 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-all duration-200 hover:bg-primary/5 hover:text-primary group-hover:opacity-100"
+                      >
+                        <MoreHorizontal className="size-4" />
+                      </button>
+
+                      {/* Custom Dropdown Menu */}
+                      {openMenuId === video.id && (
+                        <div
+                          className="absolute right-1 top-9 z-50 w-32 rounded-xl border bg-white p-1 shadow-xl animate-in fade-in zoom-in-95 duration-100 dark:bg-[#2A2A2A] dark:border-neutral-800"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            onClick={(e) => { handleRename(e, video.id, video.title); setOpenMenuId(null); }}
+                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-foreground hover:bg-neutral-50 dark:hover:bg-neutral-800"
+                          >
+                            <Edit3 className="size-3.5 text-emerald-500" />
+                            <span>Đổi tên</span>
+                          </button>
+                          <button
+                            onClick={(e) => { handleDelete(e, video.id); setOpenMenuId(null); }}
+                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-rose-500 hover:bg-rose-50/50 dark:hover:bg-rose-950/20"
+                          >
+                            <Trash2 className="size-3.5" />
+                            <span>Xóa video</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <p className="px-3 py-2 text-[12px] text-muted-foreground italic">Chưa có video nào</p>
+                )}
               </div>
             </li>
 

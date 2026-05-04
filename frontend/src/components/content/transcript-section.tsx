@@ -1,116 +1,172 @@
 "use client"
 
-import { useState } from "react"
-import { ChevronDown, Eye } from "lucide-react"
+import { useState, useEffect } from "react"
+import { ChevronDown, Eye, FileText, Loader2, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { api } from "@/lib/api"
 
-const transcriptData = [
-  {
-    time: "00:00",
-    title: "Giới thiệu về Dịch vụ Web của Amazon",
-    body: "Amazon Web Services (AWS) là nền tảng đám mây toàn diện nhất, cung cấp hơn 200 dịch vụ đầy đủ tính năng từ các trung tâm dữ liệu trên toàn cầu. Cho dù bạn là startup hay doanh nghiệp lớn, AWS đều có giải pháp phù hợp.",
-  },
-  {
-    time: "00:26",
-    title: "EC2 - Dịch vụ Máy tính Đám mây",
-    body: "Amazon EC2 cung cấp khả năng điện toán có thể thay đổi quy mô trong đám mây. Bạn có thể khởi tạo máy chủ ảo, cấu hình bảo mật và mạng, quản lý lưu trữ mà không cần phần cứng vật lý.",
-  },
-  {
-    time: "01:15",
-    title: "S3 - Dịch vụ Lưu trữ Đối tượng",
-    body: "Amazon S3 là dịch vụ lưu trữ đối tượng cung cấp khả năng mở rộng, tính sẵn sàng của dữ liệu, bảo mật và hiệu suất hàng đầu. Khách hàng của mọi quy mô và ngành nghề sử dụng S3 để lưu trữ và bảo vệ dữ liệu.",
-  },
-  {
-    time: "02:03",
-    title: "Lambda - Điện toán Không máy chủ",
-    body: "AWS Lambda cho phép bạn chạy mã mà không cần cung cấp hoặc quản lý máy chủ. Bạn chỉ trả tiền cho thời gian tính toán tiêu thụ và không phải trả gì khi mã của bạn không chạy.",
-  },
-  {
-    time: "03:10",
-    title: "RDS - Cơ sở dữ liệu Quan hệ",
-    body: "Amazon RDS giúp bạn dễ dàng thiết lập, vận hành và mở rộng cơ sở dữ liệu quan hệ trong đám mây. Nó cung cấp khả năng mở rộng theo yêu cầu cho 6 cơ sở dữ liệu phổ biến.",
-  },
-  {
-    time: "04:22",
-    title: "DynamoDB - Cơ sở dữ liệu NoSQL",
-    body: "Amazon DynamoDB là cơ sở dữ liệu NoSQL managed chủ yếu cung cấp hiệu suất nhanh và có thể dự đoán được với khả năng mở rộng liền mạch. Ideal cho các ứng dụng yêu cầu độ trễ thấp.",
-  },
-]
+interface TranscriptSectionProps {
+  videoId: string
+  initialTranscript?: any
+}
 
-export function TranscriptSection() {
+export function TranscriptSection({ videoId, initialTranscript }: TranscriptSectionProps) {
   const [activeTab, setActiveTab] = useState<"chapters" | "copy">("chapters")
   const [autoScroll, setAutoScroll] = useState(false)
+  const [transcript, setTranscript] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+
+  // Sync with initialTranscript when it changes or on mount
+  useEffect(() => {
+    if (initialTranscript && initialTranscript.length > 0) {
+      setTranscript(Array.isArray(initialTranscript) ? initialTranscript : [])
+    }
+  }, [initialTranscript])
+
+  const handleGenerate = async () => {
+    if (!videoId) return
+    setLoading(true)
+    try {
+      const result = await api.transcript.generate(videoId)
+      
+      if (result && Array.isArray(result.transcript)) {
+        setTranscript(result.transcript)
+        setLoading(false)
+      } else if (result && (result.status === "processing" || result.status === "already_processing")) {
+        // Start polling the video status
+        let failCount = 0
+        const pollInterval = setInterval(async () => {
+          try {
+            const videoData = await api.videos.get(videoId)
+            if (videoData.status === "done" && videoData.transcript) {
+              setTranscript(videoData.transcript)
+              setLoading(false)
+              clearInterval(pollInterval)
+            } else if (videoData.status === "error") {
+              console.error("Transcription error:", videoData.error_message)
+              setLoading(false)
+              clearInterval(pollInterval)
+            }
+            failCount = 0 // Reset on success
+          } catch (e) {
+            failCount++
+            console.error("Polling error:", e)
+            if (failCount > 5) {
+              setLoading(false)
+              clearInterval(pollInterval)
+            }
+          }
+        }, 3000)
+        
+        // Safety timeout (5 mins)
+        setTimeout(() => {
+          setLoading(false)
+          clearInterval(pollInterval)
+        }, 300000)
+      }
+
+    } catch (error) {
+      console.error("Failed to generate transcript:", error)
+      setLoading(false)
+    }
+  }
+
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
 
   return (
-    <div className="mt-5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-0.5">
+    <div className="mt-6 border-t border-neutral-100 pt-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-1 bg-neutral-100/50 p-1 rounded-xl">
           <button
             onClick={() => setActiveTab("chapters")}
             className={cn(
-              "rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors",
+              "rounded-lg px-4 py-1.5 text-[13px] font-bold transition-all",
               activeTab === "chapters"
-                ? "bg-foreground text-background"
-                : "text-muted-foreground hover:bg-neutral-100 hover:text-foreground"
+                ? "bg-white text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
             )}
           >
-            Chương
+            Nội dung
           </button>
           <button
             onClick={() => setActiveTab("copy")}
             className={cn(
-              "rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors",
+              "rounded-lg px-4 py-1.5 text-[13px] font-bold transition-all",
               activeTab === "copy"
-                ? "bg-foreground text-background"
-                : "text-muted-foreground hover:bg-neutral-100 hover:text-foreground"
+                ? "bg-white text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
             )}
           >
             Bản sao
           </button>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          {(!transcript || transcript.length === 0) && !loading && (
+            <button
+              onClick={handleGenerate}
+              className="flex items-center gap-2 rounded-xl bg-emerald-500 px-3 py-1.5 text-[12px] font-bold text-white shadow-sm transition-all hover:bg-emerald-600 active:scale-95"
+            >
+              <Sparkles className="size-3.5" />
+              Tạo bản ghi
+            </button>
+          )}
+          {loading && (
+            <div className="flex items-center gap-2 px-3 py-1.5 text-[12px] font-bold text-emerald-600 bg-emerald-50 rounded-xl">
+              <Loader2 className="size-3.5 animate-spin" />
+              Đang xử lý...
+            </div>
+          )}
           <button
             onClick={() => setAutoScroll(!autoScroll)}
             className={cn(
-              "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors",
+              "flex items-center gap-2 rounded-xl px-3 py-1.5 text-[12px] font-bold transition-all",
               autoScroll
-                ? "bg-emerald-50 text-emerald-700"
-                : "text-muted-foreground hover:bg-neutral-100 hover:text-foreground"
+                ? "bg-emerald-50 text-emerald-600 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.1)]"
+                : "text-muted-foreground bg-neutral-100 hover:bg-neutral-200"
             )}
           >
-            <Eye className="size-3" />
+            <Eye className="size-3.5" />
             Tự động cuộn
-          </button>
-          <button className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-neutral-100 hover:text-foreground">
-            <ChevronDown className="size-4" />
           </button>
         </div>
       </div>
 
-      <div className="mt-4 space-y-6">
-        {transcriptData.map((block, i) => (
-          <div
-            key={block.time}
-            className="group relative flex gap-4 rounded-xl p-3 transition-colors hover:bg-white"
-          >
-            <div className="flex flex-col items-center pt-0.5">
-              <span className="inline-flex shrink-0 rounded-md bg-neutral-100 px-1.5 py-0.5 font-mono text-[11px] font-medium text-neutral-500 tabular-nums shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)]">
-                {block.time}
-              </span>
-              {i < transcriptData.length - 1 && (
-                <div className="mt-2 h-full w-px bg-neutral-100" />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-[14px] font-semibold text-foreground leading-snug">
-                {block.title}
-              </h3>
-              <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
-                {block.body}
-              </p>
-            </div>
+      <div className="space-y-2">
+        {transcript && transcript.length > 0 ? (
+          <div className="grid gap-1">
+            {transcript.map((block, i) => (
+              <div
+                key={`${block.start}-${i}`}
+                className="group flex gap-4 rounded-xl p-3 transition-all hover:bg-white hover:shadow-sm"
+              >
+                <button onClick={() => window.dispatchEvent(new CustomEvent('seek-video', { detail: block.start }))} className="flex flex-col items-center pt-0.5 group cursor-pointer">
+                  <span className="inline-flex shrink-0 rounded-lg bg-neutral-100 px-2 py-1 font-mono text-[11px] font-bold text-neutral-500 tabular-nums transition-colors group-hover:bg-emerald-500 group-hover:text-white">
+                    {formatTime(block.start)}
+                  </span>
+                </button>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] leading-relaxed text-foreground/80 group-hover:text-foreground">
+                    {block.text}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+        ) : !loading && (
+          <div className="flex flex-col items-center justify-center py-12 text-center rounded-2xl border-2 border-dashed border-neutral-100">
+            <div className="mb-4 flex size-14 items-center justify-center rounded-full bg-neutral-50">
+              <FileText className="size-7 text-neutral-200" />
+            </div>
+            <p className="text-[14px] font-medium text-muted-foreground max-w-[200px]">
+              Chưa có bản ghi nào. Hãy nhấn nút "Tạo bản ghi" để bắt đầu.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   )

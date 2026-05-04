@@ -45,17 +45,23 @@ async def process_transcription_task(video_id: uuid.UUID):
 
         # Tìm file
         upload_dir = Path(settings.UPLOAD_DIR)
-        matches = list(upload_dir.glob(f"{video.source_ref}.*"))
-        if not matches:
-            video.status = "error"
-            video.error_message = "File video đã bị xóa hoặc không tìm thấy"
-            await db.commit()
-            return
+        file_path = upload_dir / video.source_ref
+        
+        if file_path.exists():
+            target_file = file_path
+        else:
+            matches = list(upload_dir.glob(f"{video.source_ref}.*"))
+            if not matches:
+                video.status = "error"
+                video.error_message = "File video đã bị xóa hoặc không tìm thấy"
+                await db.commit()
+                return
+            target_file = matches[0]
 
         try:
             # Chạy whisper trong threadpool để không block event loop
             loop = asyncio.get_event_loop()
-            result_data = await loop.run_in_executor(executor, run_whisper, str(matches[0]))
+            result_data = await loop.run_in_executor(executor, run_whisper, str(target_file))
 
             # Cập nhật kết quả
             video.transcript = result_data

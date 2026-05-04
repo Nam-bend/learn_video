@@ -3,11 +3,15 @@
 import { RefreshCw, Share2, MoreHorizontal } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-export function ContentHeader() {
+interface ContentHeaderProps {
+  title?: string
+}
+
+export function ContentHeader({ title }: ContentHeaderProps) {
   return (
     <div className="flex items-center gap-2 min-w-0 flex-1">
       <h1 className="truncate text-[15px] font-semibold text-foreground">
-        Top 50+ AWS Services Expla...
+        {title || "Top 50+ AWS Services Explained"}
       </h1>
       <div className="flex items-center gap-1.5 shrink-0 ml-2">
         <span className="inline-flex h-6 items-center gap-1 rounded-lg bg-muted/70 px-2 text-[11px] font-semibold tabular-nums text-muted-foreground shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)]">

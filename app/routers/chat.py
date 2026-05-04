@@ -26,14 +26,14 @@ async def chat(video_id: str, payload: dict, db: AsyncSession = Depends(get_db))
     if not question:
         raise HTTPException(400, "Tin nhắn không được để trống")
 
-    transcript_text = " ".join(s["text"] for s in (video.transcript or []))
+    transcript_text = "\n".join(f"[{int(s['start']//60):02d}:{int(s['start']%60):02d}] {s['text']}" for s in (video.transcript or []))
 
     try:
         response = await client.chat.completions.create(
-            model="gpt-4o",  # ← chỉ cần tên model gọn thôi
+            model="gpt-4o",
             messages=[
-                {"role": "system", "content": "Bạn là một trợ lý học tập. Hãy dựa vào nội dung video được cung cấp để trả lời câu hỏi của người dùng."},
-                {"role": "user", "content": f"Nội dung video: {transcript_text}\n\nCâu hỏi: {question}"}
+                {"role": "system", "content": "Bạn là một trợ lý học tập. Hãy dựa vào nội dung video được cung cấp để trả lời câu hỏi của người dùng. Hãy trả lời chi tiết, súc tích và QUAN TRỌNG NHẤT: Bắt buộc đính kèm mốc thời gian định dạng [MM:SS] vào những thông tin quan trọng hoặc dẫn chứng cụ thể (dựa vào transcript). Điều này giúp sinh viên dễ dàng bấm vào để tua lại đúng đoạn đó trong video."},
+                {"role": "user", "content": f"Nội dung video (transcript kèm thời gian tính bằng giây): {transcript_text}\n\nCâu hỏi: {question}"}
             ]
         )
         answer = response.choices[0].message.content

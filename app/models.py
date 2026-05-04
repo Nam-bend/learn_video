@@ -15,6 +15,7 @@ class Video(Base):
     status: Mapped[str] = mapped_column(String(20), default="pending")
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     transcript: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    content_cache: Mapped[dict | None] = mapped_column(JSONB, nullable=True, default=dict)  # cached AI content
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
