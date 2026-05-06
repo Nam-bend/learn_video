@@ -57,4 +57,17 @@ class QuizAttempt(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     video: Mapped["Video"] = relationship()
-    quiz: Mapped["Quiz"] = relationship()
+    quiz: Mapped["Quiz"] = relationship()
+
+
+class VideoChunk(Base):
+    __tablename__ = "video_chunks"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    video_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("videos.id"))
+    content: Mapped[str] = mapped_column(Text)
+    start_time: Mapped[float] = mapped_column()  # Thời gian bắt đầu đoạn này
+    embedding: Mapped[list[float]] = mapped_column(JSONB)  # Lưu dưới dạng danh sách số thực trong JSONB
+
+    video: Mapped["Video"] = relationship()
+

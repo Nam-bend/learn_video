@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from app.database import get_db
@@ -6,6 +7,7 @@ from app.models import Video
 from app.config import settings
 from openai import AsyncOpenAI
 import uuid
+import json
 
 router = APIRouter()
 client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL)
@@ -23,7 +25,9 @@ async def get_study_plan(video_id: str, refresh: bool = False, db: AsyncSession 
 
     cache = video.content_cache or {}
     if CACHE_KEY in cache and not refresh:
-        return {"plan": cache[CACHE_KEY], "video_title": video.title, "cached": True}
+        async def cached_stream():
+            yield cache[CACHE_KEY]
+        return StreamingResponse(cached_stream(), media_type="text/plain")
 
     transcript_text = " ".join(s["text"] for s in video.transcript)
 
@@ -65,18 +69,31 @@ Lưu ý:
 - Các "Hành động" (bullet points) bắt buộc phải bắt đầu bằng `- [ ] ` để tạo checkbox.
 - Các hành động phải thật cụ thể (VD: "Tự viết ra 3 ví dụ về X" thay vì "Học hiểu X")."""
 
-    try:
-        response = await client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        plan = response.choices[0].message.content
+    async def stream_generator():
+        full_plan = ""
+        try:
+            response = await client.chat.completions.create(
+                model=settings.LLM_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                stream=True
+            )
+            
+            async for chunk in response:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    content = chunk.choices[0].delta.content
+                    full_plan += content
+                    yield content
 
-        new_cache = {**cache, CACHE_KEY: plan}
-        await db.execute(update(Video).where(Video.id == video.id).values(content_cache=new_cache))
-        await db.commit()
+            if full_plan:
+                from app.database import SessionLocal
+                async with SessionLocal() as new_db:
+                    res = await new_db.execute(select(Video).where(Video.id == video.id))
+                    v = res.scalar_one()
+                    new_c = {**(v.content_cache or {}), CACHE_KEY: full_plan}
+                    await new_db.execute(update(Video).where(Video.id == v.id).values(content_cache=new_c))
+                    await new_db.commit()
+        except Exception as e:
+            print(f"🔥 Study Plan Stream Error: {e}")
+            yield f"\n[Lỗi AI: {str(e)}]"
 
-        return {"plan": plan, "video_title": video.title, "cached": False}
-    except Exception as e:
-        print(f"🔥 Study Plan Error: {e}")
-        raise HTTPException(500, f"Lỗi tạo kế hoạch: {str(e)}")
+    return StreamingResponse(stream_generator(), media_type="text/plain")

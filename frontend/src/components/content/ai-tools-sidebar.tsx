@@ -249,27 +249,52 @@ function HistoryView({ videoId }: { videoId: string }) {
 function SummaryView({ videoId }: { videoId: string }) {
   const [phase, setPhase] = useState<"idle" | "loading" | "done" | "error">("idle")
   const [summary, setSummary] = useState("")
+  const [streaming, setStreaming] = useState(false)
 
   const generate = async (refresh = false) => {
     setPhase("loading")
+    setSummary("")
+    setStreaming(false)
     try {
-      const data = await api.summary.get(videoId)
-      setSummary(data.summary || "")
+      const response = await fetch(`http://localhost:8000/api/summary/${videoId}${refresh ? "?refresh=true" : ""}`)
+      if (!response.ok) throw new Error("API failed")
+      
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error("No reader")
+
+      let accumulated = ""
+      const decoder = new TextDecoder()
       setPhase("done")
+      setSummary("AI_THINKING")
+      setStreaming(true)
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        
+        const chunk = decoder.decode(value, { stream: true })
+        if (accumulated === "AI_THINKING") {
+          accumulated = chunk
+        } else {
+          accumulated += chunk
+        }
+        setSummary(accumulated)
+      }
     } catch (e: any) {
       setSummary(e?.message || "Đã có lỗi xảy ra.")
       setPhase("error")
+    } finally {
+      setStreaming(false)
     }
   }
 
-  // Auto-load on mount
   useEffect(() => { generate() }, [videoId])
 
   if (phase === "idle" || phase === "loading") return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3">
       <Loader2 className="size-7 animate-spin text-emerald-500" />
-      <p className="text-[13px] text-muted-foreground">AI đang phân tích nội dung...</p>
-      <p className="text-[12px] text-muted-foreground opacity-60">Có thể mất 30-60 giây lần đầu</p>
+      <p className="text-[13px] text-muted-foreground font-medium">AI đang đọc video...</p>
+      <p className="text-[11px] text-muted-foreground opacity-60">Chuẩn bị tóm tắt trong giây lát</p>
     </div>
   )
 
@@ -277,23 +302,35 @@ function SummaryView({ videoId }: { videoId: string }) {
     <div className="flex flex-1 flex-col overflow-hidden">
       <div className="flex-1 overflow-y-auto px-5 py-5">
         {phase === "error" ? (
-          <div className="rounded-xl border border-red-100 bg-red-50 p-4 text-[13px] text-red-700">{summary}</div>
+          <div className="rounded-xl border border-red-50 bg-red-50/30 p-4 text-center">
+            <p className="text-[13px] text-red-600">{summary}</p>
+            <button onClick={() => generate(true)} className="mt-3 text-[12px] font-semibold text-red-700 underline underline-offset-4">Thử lại</button>
+          </div>
+        ) : summary === "AI_THINKING" ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3">
+             <div className="flex size-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-500 animate-pulse mb-2">
+                <Bot className="size-8" />
+             </div>
+             <p className="text-[14px] font-semibold text-emerald-600">AI đang phân tích video...</p>
+             <p className="text-[12px] text-muted-foreground">Đang trích xuất các ý chính quan trọng</p>
+          </div>
         ) : (
-          <MarkdownContent content={summary} />
+          <MarkdownContent content={summary} id={`${videoId}-summary`} isStreaming={streaming} />
         )}
-
       </div>
-      <div className="shrink-0 border-t border-neutral-100 p-4">
-        <button onClick={() => generate(true)} className="flex w-full items-center justify-center gap-2 rounded-xl border border-neutral-200 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-neutral-50">
-          <RefreshCw className="size-3.5" /> Tạo lại
+
+      <div className="shrink-0 border-t border-neutral-100 p-4 bg-neutral-50/50">
+        <button onClick={() => generate(true)}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-white border border-neutral-200 py-2.5 text-[13px] font-semibold text-foreground transition-all hover:bg-neutral-50 active:scale-[0.98] shadow-sm">
+          <RefreshCw className="size-3.5 text-emerald-600" />
+          Làm mới tóm tắt
         </button>
       </div>
     </div>
   )
 }
-
 // Reusable markdown renderer for AI-generated markdown content
-function MarkdownContent({ content, id }: { content: string, id?: string }) {
+function MarkdownContent({ content, id, isStreaming }: { content: string, id?: string, isStreaming?: boolean }) {
   const [checkedLines, setCheckedLines] = useState<Record<number, boolean>>({})
 
   useEffect(() => {
@@ -303,7 +340,7 @@ function MarkdownContent({ content, id }: { content: string, id?: string }) {
         if (saved) setCheckedLines(JSON.parse(saved))
       } catch { }
     }
-  }, [id, content]) // Re-load if content changes
+  }, [id, content])
 
   const toggleCheck = (lineIndex: number) => {
     const next = { ...checkedLines, [lineIndex]: !checkedLines[lineIndex] }
@@ -311,9 +348,13 @@ function MarkdownContent({ content, id }: { content: string, id?: string }) {
     if (id) localStorage.setItem(`md-check-${id}`, JSON.stringify(next))
   }
 
+  const lines = content.split("\n")
+
   return (
     <div className="space-y-2 text-[13px] leading-relaxed text-foreground">
-      {content.split("\n").map((line, i) => {
+      {lines.map((line, i) => {
+        const isLastLine = i === lines.length - 1
+        
         if (line.startsWith("## ")) return <h2 key={i} className="mt-5 mb-2 text-[15px] font-bold text-foreground">{line.replace("## ", "")}</h2>
         if (line.startsWith("### ")) return <h3 key={i} className="mt-3 mb-1 text-[13px] font-bold text-foreground">{line.replace("### ", "")}</h3>
         if (line.startsWith("**") && line.endsWith("**")) return <p key={i} className="font-semibold text-foreground">{line.replace(/\*\*/g, "")}</p>
@@ -326,78 +367,128 @@ function MarkdownContent({ content, id }: { content: string, id?: string }) {
               <input type="checkbox" checked={isChecked} onChange={() => toggleCheck(i)} className="mt-1 size-3.5 shrink-0 rounded border-neutral-300 text-emerald-500 focus:ring-emerald-500 cursor-pointer" />
               <span className={cn("text-foreground/80 select-none", isChecked && "line-through text-muted-foreground")}>
                 {line.replace(/^- \[[ x]\] /, "")}
+                {isLastLine && isStreaming && <span className="inline-block w-1.5 h-3.5 ml-1 bg-emerald-500 animate-pulse align-middle" />}
               </span>
             </label>
           )
         }
 
-        if (line.startsWith("- ") || line.startsWith("* ")) return <p key={i} className="flex gap-2"><span className="text-emerald-500 shrink-0 mt-0.5">•</span><span>{line.replace(/^[-*] /, "")}</span></p>
-        if (line.match(/^\d+\. /)) return <p key={i} className="text-foreground">{line}</p>
+        if (line.startsWith("- ") || line.startsWith("* ")) return (
+          <p key={i} className="flex gap-2">
+            <span className="text-emerald-500 shrink-0 mt-0.5">•</span>
+            <span>
+              {line.replace(/^[-*] /, "")}
+              {isLastLine && isStreaming && <span className="inline-block w-1.5 h-3.5 ml-1 bg-emerald-500 animate-pulse align-middle" />}
+            </span>
+          </p>
+        )
+        
+        if (line.match(/^\d+\. /)) return <p key={i} className="text-foreground">{line}{isLastLine && isStreaming && <span className="inline-block w-1.5 h-3.5 ml-1 bg-emerald-500 animate-pulse align-middle" />}</p>
         if (line.trim() === "") return <div key={i} className="h-1" />
-        return <p key={i} className="text-foreground/80">{line}</p>
+        
+        return (
+          <p key={i} className="text-foreground/80">
+            {line}
+            {isLastLine && isStreaming && <span className="inline-block w-1.5 h-3.5 ml-1 bg-emerald-500 animate-pulse align-middle" />}
+          </p>
+        )
       })}
     </div>
   )
 }
 
 function AiContentView({
-  videoId, icon: Icon, title, description, fetchFn, dataKey,
+  videoId, icon: Icon, title, description, dataKey,
 }: {
   videoId: string
-  icon: React.ElementType
+  icon: any
   title: string
   description: string
-  fetchFn: (id: string, refresh?: boolean) => Promise<any>
   dataKey: string
 }) {
   const [phase, setPhase] = useState<"idle" | "loading" | "done" | "error">("idle")
   const [content, setContent] = useState("")
-  const [isCached, setIsCached] = useState(false)
+  const [streaming, setStreaming] = useState(false)
 
   const generate = async (refresh = false) => {
     setPhase("loading")
+    setContent("")
+    setStreaming(false)
     try {
-      const data = await fetchFn(videoId, refresh)
-      setContent(data[dataKey] || "")
-      setIsCached(data.cached === true)
+      const endpoint = dataKey === "plan" ? `/study-plan/${videoId}` : `/${dataKey}/${videoId}`
+      const response = await fetch(`http://localhost:8000/api${endpoint}${refresh ? "?refresh=true" : ""}`)
+      
+      if (!response.ok) throw new Error("API failed")
+
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error("No reader")
+
+      let accumulated = ""
+      const decoder = new TextDecoder()
       setPhase("done")
+      setContent("AI_THINKING")
+      setStreaming(true)
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        
+        const chunk = decoder.decode(value, { stream: true })
+        if (accumulated === "AI_THINKING") {
+          accumulated = chunk
+        } else {
+          accumulated += chunk
+        }
+        setContent(accumulated)
+      }
     } catch (e: any) {
       setContent(e?.message || "Đã có lỗi xảy ra.")
       setPhase("error")
+    } finally {
+      setStreaming(false)
     }
   }
 
-  // Auto-load on mount
   useEffect(() => { generate() }, [videoId])
 
   if (phase === "idle" || phase === "loading") return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3">
       <Loader2 className="size-7 animate-spin text-emerald-500" />
-      <p className="text-[13px] text-muted-foreground">AI đang tạo nội dung...</p>
-      <p className="text-[12px] text-muted-foreground opacity-60">Khoảng 5-30 giây</p>
+      <p className="text-[13px] text-muted-foreground font-medium">Đang chuẩn bị {title}...</p>
     </div>
   )
 
-  if (phase === "done" || phase === "error") {
-    return (
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto px-5 py-5">
-          {phase === "error"
-            ? <div className="rounded-xl border border-red-100 bg-red-50 p-4 text-[13px] text-red-700">{content}</div>
-            : <MarkdownContent content={content} id={`${videoId}-${dataKey}`} />}
-        </div>
-        <div className="shrink-0 border-t border-neutral-100 p-4 space-y-2">
-          {isCached && (
-            <p className="text-center text-[11px] text-emerald-600 font-medium">⚡ Từ bộ nhớ cache — tải tức thì</p>
-          )}
-          <button onClick={() => generate(true)} className="flex w-full items-center justify-center gap-2 rounded-xl border border-neutral-200 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-neutral-50">
-            <RefreshCw className="size-3.5" /> Tạo lại từ AI
-          </button>
-        </div>
+  return (
+    <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex-1 overflow-y-auto px-5 py-5">
+        {phase === "error" ? (
+          <div className="rounded-xl border border-red-50 bg-red-50/30 p-4 text-center">
+            <p className="text-[13px] text-red-600">{content}</p>
+            <button onClick={() => generate(true)} className="mt-3 text-[12px] font-semibold text-red-700 underline underline-offset-4">Thử lại</button>
+          </div>
+        ) : content === "AI_THINKING" ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+             <div className="flex size-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 animate-pulse">
+                <Icon className="size-9" />
+             </div>
+             <div>
+                <p className="text-[15px] font-bold text-foreground">AI đang xây dựng {title}...</p>
+                <p className="mt-1 text-[12px] text-muted-foreground max-w-[200px]">Tối ưu hóa kiến thức từ video để phù hợp nhất với bạn</p>
+             </div>
+          </div>
+        ) : (
+          <MarkdownContent content={content} id={`${videoId}-${dataKey}`} isStreaming={streaming} />
+        )}
       </div>
-    )
-  }
-  return null
+      <div className="shrink-0 border-t border-neutral-100 p-4 bg-neutral-50/50">
+        <button onClick={() => generate(true)}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-white border border-neutral-200 py-2.5 text-[13px] font-semibold text-foreground transition-all hover:bg-neutral-50 active:scale-[0.98] shadow-sm">
+          <RefreshCw className="size-3.5 text-emerald-600" />
+          Làm mới nội dung
+        </button>
+      </div>
+    </div>
+  )
 }
 function PersonalNotesView({ videoId }: { videoId: string }) {
   const [isSaving, setIsSaving] = useState(false)
@@ -1010,15 +1101,54 @@ function ChatView({ videoId }: { videoId: string }) {
   const send = async (text?: string) => {
     const content = text ?? input
     if (!content.trim() || loading) return
-    const msg: Message = { role: "user", content }
-    setMessages(p => [...p, msg])
+    const userMsg: Message = { role: "user", content }
+    setMessages(p => [...p, userMsg])
     setInput("")
     setLoading(true)
+
+    // Thêm message rỗng cho AI với trạng thái "Đang suy nghĩ"
+    setMessages(p => [...p, { role: "assistant", content: "AI_THINKING" }])
+
     try {
-      const res = await api.chat.send(videoId, msg.content)
-      setMessages(p => [...p, { role: "assistant", content: res.answer }])
+      const response = await fetch(`http://localhost:8000/api/chat/${videoId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: content }),
+      })
+
+      if (!response.ok) throw new Error("API failed")
+      
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error("No reader")
+
+      let accumulated = ""
+      const decoder = new TextDecoder()
+      let firstChunk = true
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        
+        const chunk = decoder.decode(value, { stream: true })
+        if (firstChunk) {
+          accumulated = chunk
+          firstChunk = false
+        } else {
+          accumulated += chunk
+        }
+        
+        setMessages(p => {
+          const next = [...p]
+          next[next.length - 1] = { role: "assistant", content: accumulated }
+          return next
+        })
+      }
     } catch {
-      setMessages(p => [...p, { role: "assistant", content: "Đã có lỗi xảy ra, vui lòng thử lại." }])
+      setMessages(p => {
+        const next = [...p]
+        next[next.length - 1] = { role: "assistant", content: "Đã có lỗi xảy ra, vui lòng thử lại." }
+        return next
+      })
     } finally {
       setLoading(false)
       setTimeout(() => inputRef.current?.focus(), 50)
@@ -1075,26 +1205,22 @@ function ChatView({ videoId }: { videoId: string }) {
               </div>
             ) : (
               <div className="flex-1 min-w-0 rounded-2xl rounded-tl-sm bg-white border border-neutral-100 shadow-sm px-4 py-3">
-                <AiMessageContent content={msg.content} />
+                {msg.content === "AI_THINKING" ? (
+                   <div className="flex items-center gap-3 py-1">
+                      <div className="flex gap-1">
+                        <span className="size-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="size-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="size-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
+                      <span className="text-[12px] text-emerald-600 font-medium animate-pulse">AI đang tìm kiếm thông tin...</span>
+                   </div>
+                ) : (
+                  <AiMessageContent content={msg.content} />
+                )}
               </div>
             )}
           </div>
         ))}
-
-        {loading && (
-          <div className="flex gap-2.5 items-start">
-            <div className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-400 shadow-sm">
-              <Bot className="size-3 text-white" />
-            </div>
-            <div className="rounded-2xl rounded-tl-sm bg-white border border-neutral-100 shadow-sm px-4 py-3">
-              <div className="flex gap-1 items-center h-4">
-                <span className="size-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="size-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="size-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '300ms' }} />
-              </div>
-            </div>
-          </div>
-        )}
 
         <div ref={endRef} />
       </div>
@@ -1218,7 +1344,7 @@ export function AiToolsSidebar({ videoId }: { videoId: string }) {
           {renderedTools.has("notes") && <PersonalNotesView videoId={videoId} />}
         </div>
         <div className={cn("flex flex-1 flex-col overflow-hidden", activeTool?.id !== "plan" && "hidden")}>
-          {renderedTools.has("plan") && <AiContentView videoId={videoId} icon={CalendarRange} title="Kế hoạch 7 ngày" description="Lộ trình học tập cá nhân hoá từ AI" fetchFn={api.studyPlan.get} dataKey="plan" />}
+          {renderedTools.has("plan") && <AiContentView videoId={videoId} icon={CalendarRange} title="Kế hoạch 7 ngày" description="Lộ trình học tập cá nhân hoá từ AI" dataKey="plan" />}
         </div>
         <div className={cn("flex flex-1 flex-col overflow-hidden", activeTool?.id !== "export" && "hidden")}>
           {renderedTools.has("export") && <ExportPdfView videoId={videoId} />}

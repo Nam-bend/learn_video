@@ -1,11 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
-from app.models import Video, ChatMessage
+from app.models import Video, ChatMessage, VideoChunk
 from app.config import settings
+from app.utils.ai import get_embedding
 from openai import AsyncOpenAI
 import uuid
+import numpy as np
+import json
 
 router = APIRouter()
 
@@ -26,30 +30,81 @@ async def chat(video_id: str, payload: dict, db: AsyncSession = Depends(get_db))
     if not question:
         raise HTTPException(400, "Tin nhắn không được để trống")
 
-    transcript_text = "\n".join(f"[{int(s['start']//60):02d}:{int(s['start']%60):02d}] {s['text']}" for s in (video.transcript or []))
-
+    # --- RAG RETRIEVAL (PYTHON-SIDE) ---
     try:
-        response = await client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "Bạn là một trợ lý học tập. Hãy dựa vào nội dung video được cung cấp để trả lời câu hỏi của người dùng. Hãy trả lời chi tiết, súc tích và QUAN TRỌNG NHẤT: Bắt buộc đính kèm mốc thời gian định dạng [MM:SS] vào những thông tin quan trọng hoặc dẫn chứng cụ thể (dựa vào transcript). Điều này giúp sinh viên dễ dàng bấm vào để tua lại đúng đoạn đó trong video."},
-                {"role": "user", "content": f"Nội dung video (transcript kèm thời gian tính bằng giây): {transcript_text}\n\nCâu hỏi: {question}"}
-            ]
+        # 1. Chuyển câu hỏi thành vector
+        question_vector = await get_embedding(question)
+
+        # 2. Lấy tất cả các chunk của video này từ DB
+        result_chunks = await db.execute(
+            select(VideoChunk).where(VideoChunk.video_id == video.id)
         )
-        answer = response.choices[0].message.content
+        all_chunks = result_chunks.scalars().all()
 
-        if not answer:
-            raise Exception("AI không trả về nội dung")
+        if all_chunks:
+            # 3. Tính toán độ tương đồng Cosine bằng Numpy
+            q_v = np.array(question_vector)
+            
+            def get_sim(chunk):
+                c_v = np.array(chunk.embedding)
+                return np.dot(q_v, c_v) / (np.linalg.norm(q_v) * np.linalg.norm(c_v))
 
-        db.add(ChatMessage(video_id=video.id, role="user", content=question))
-        db.add(ChatMessage(video_id=video.id, role="assistant", content=answer))
-        await db.commit()
+            # Sắp xếp các chunk theo độ tương đồng giảm dần
+            all_chunks.sort(key=get_sim, reverse=True)
+            
+            # Lấy top 5 đoạn liên quan nhất
+            top_chunks = all_chunks[:5]
 
-        return {"answer": answer}
+            # Sắp xếp lại theo thời gian để AI dễ đọc hơn
+            top_chunks.sort(key=lambda x: x.start_time)
+            
+            context_text = "\n".join(
+                f"[{int(c.start_time//60):02d}:{int(c.start_time%60):02d}] {c.content}" 
+                for c in top_chunks
+            )
+        else:
+            context_text = "Không tìm thấy dữ liệu bổ trợ cho video này. Có thể video chưa được index."
 
     except Exception as e:
-        print(f"🔥 OpenAI Error: {e}")
-        raise HTTPException(500, f"Lỗi gọi AI: {str(e)}")
+        print(f"🔥 RAG Retrieval Error: {e}")
+        context_text = "Lỗi khi truy xuất dữ liệu từ video."
+
+    # Gộp system prompt vào user message để hỗ trợ streaming ổn định
+    full_prompt = (
+        "Bạn là một trợ lý học tập. Hãy dựa vào những đoạn trích dẫn từ video được cung cấp để trả lời câu hỏi của người dùng. "
+        "Hãy trả lời chi tiết, súc tích và QUAN TRỌNG NHẤT: Bắt buộc đính kèm mốc thời gian định dạng [MM:SS] vào những thông tin quan trọng hoặc dẫn chứng cụ thể (dựa vào transcript).\n\n"
+        f"Các đoạn trích dẫn liên quan từ video:\n{context_text}\n\n"
+        f"Câu hỏi: {question}"
+    )
+
+    async def stream_generator():
+        full_answer = ""
+        try:
+            response = await client.chat.completions.create(
+                model=settings.LLM_MODEL,
+                messages=[{"role": "user", "content": full_prompt}],
+                stream=True
+            )
+            
+            async for chunk in response:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    content = chunk.choices[0].delta.content
+                    full_answer += content
+                    yield content
+
+            # Sau khi kết thúc stream, lưu vào DB
+            if full_answer:
+                # Tạo session mới để lưu DB vì session chính có thể đã đóng
+                from app.database import SessionLocal
+                async with SessionLocal() as new_db:
+                    new_db.add(ChatMessage(video_id=video.id, role="user", content=question))
+                    new_db.add(ChatMessage(video_id=video.id, role="assistant", content=full_answer))
+                    await new_db.commit()
+        except Exception as e:
+            print(f" Stream Error: {e}")
+            yield f"\n[Lỗi AI: {str(e)}]"
+
+    return StreamingResponse(stream_generator(), media_type="text/plain")
 
 @router.get("/chat/{video_id}")
 async def get_chat_history(video_id: str, db: AsyncSession = Depends(get_db)):

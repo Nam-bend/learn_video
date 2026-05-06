@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db, AsyncSessionLocal
-from app.models import Video
+from app.models import Video, VideoChunk
 from app.config import settings
+from app.utils.ai import get_embedding
 from faster_whisper import WhisperModel
 import uuid
 from pathlib import Path
@@ -12,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 router = APIRouter()
 
-# 🔥 Load model 1 lần duy nhất
+#  Load model 1 lần duy nhất
 model = WhisperModel(
     "tiny",
     compute_type="int8",
@@ -66,8 +67,38 @@ async def process_transcription_task(video_id: uuid.UUID):
             # Cập nhật kết quả
             video.transcript = result_data
             video.status = "done"
+
+            # --- RAG INDEXING ---
+            # Gom các đoạn transcript nhỏ thành các chunk lớn hơn (khoảng 30 giây/chunk)
+            current_chunk = ""
+            start_time = 0
+            
+            for i, seg in enumerate(result_data):
+                if not current_chunk:
+                    start_time = seg['start']
+                
+                current_chunk += f" {seg['text']}"
+                
+                # Cứ sau khoảng 5 câu hoặc khi kết thúc transcript thì tạo 1 embedding
+                if (i + 1) % 5 == 0 or i == len(result_data) - 1:
+                    chunk_text = current_chunk.strip()
+                    if chunk_text:
+                        # Tạo embedding cho chunk
+                        vector = await get_embedding(chunk_text)
+                        
+                        # Lưu vào DB
+                        new_chunk = VideoChunk(
+                            video_id=video_id,
+                            content=chunk_text,
+                            start_time=start_time,
+                            embedding=vector
+                        )
+                        db.add(new_chunk)
+                    
+                    current_chunk = ""
+            
         except Exception as e:
-            print(f"🔥 Transcription Error: {e}")
+            print(f"🔥 Transcription/RAG Error: {e}")
             video.status = "error"
             video.error_message = str(e)
         

@@ -43,10 +43,19 @@ Trả về JSON thuần túy, không có markdown."""
 
     try:
         response = await client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": prompt}]
+            model=settings.LLM_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            stream=True
         )
-        content = response.choices[0].message.content.strip()
+        
+        content = ""
+        async for chunk in response:
+            if chunk.choices and chunk.choices[0].delta.content:
+                content += chunk.choices[0].delta.content
+        
+        content = content.strip()
+        if not content:
+            raise Exception("AI không trả về nội dung (Proxy error)")
         if "```json" in content:
             content = content.split("```json")[1].split("```")[0].strip()
         elif "```" in content:

@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str
     OPENAI_API_KEY: str
     OPENAI_BASE_URL: str
+    LLM_MODEL: str = "gpt-5.3-codex"
     UPLOAD_DIR: str = "tmp/uploads"
 
     class Config:

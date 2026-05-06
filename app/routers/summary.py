@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from app.database import get_db
@@ -6,6 +7,7 @@ from app.models import Video
 from app.config import settings
 from openai import AsyncOpenAI
 import uuid
+import json
 
 router = APIRouter()
 client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL)
@@ -24,7 +26,10 @@ async def get_summary(video_id: str, refresh: bool = False, db: AsyncSession = D
     # Return cached result if available
     cache = video.content_cache or {}
     if CACHE_KEY in cache and not refresh:
-        return {"summary": cache[CACHE_KEY], "video_title": video.title, "cached": True}
+        # Giả lập stream cho cache để frontend xử lý đồng nhất
+        async def cached_stream():
+            yield cache[CACHE_KEY]
+        return StreamingResponse(cached_stream(), media_type="text/plain")
 
     transcript_text = " ".join(s["text"] for s in video.transcript)
 
@@ -53,19 +58,33 @@ Nội dung video: {transcript_text[:8000]}
 
 Hãy trả lời bằng tiếng Việt, chi tiết và đầy đủ nhất có thể."""
 
-    try:
-        response = await client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        summary = response.choices[0].message.content
+    async def stream_generator():
+        full_summary = ""
+        try:
+            response = await client.chat.completions.create(
+                model=settings.LLM_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                stream=True
+            )
+            
+            async for chunk in response:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    content = chunk.choices[0].delta.content
+                    full_summary += content
+                    yield content
 
-        # Cache the result
-        new_cache = {**cache, CACHE_KEY: summary}
-        await db.execute(update(Video).where(Video.id == video.id).values(content_cache=new_cache))
-        await db.commit()
+            # Sau khi kết thúc stream, lưu vào DB
+            if full_summary:
+                from app.database import SessionLocal
+                async with SessionLocal() as new_db:
+                    # Lấy lại video object trong session mới
+                    res = await new_db.execute(select(Video).where(Video.id == video.id))
+                    v = res.scalar_one()
+                    new_c = {**(v.content_cache or {}), CACHE_KEY: full_summary}
+                    await new_db.execute(update(Video).where(Video.id == v.id).values(content_cache=new_c))
+                    await new_db.commit()
+        except Exception as e:
+            print(f"🔥 Summary Stream Error: {e}")
+            yield f"\n[Lỗi AI: {str(e)}]"
 
-        return {"summary": summary, "video_title": video.title, "cached": False}
-    except Exception as e:
-        print(f"🔥 Summary Error: {e}")
-        raise HTTPException(500, f"Lỗi tạo tóm tắt: {str(e)}")
+    return StreamingResponse(stream_generator(), media_type="text/plain")
