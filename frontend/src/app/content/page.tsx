@@ -8,6 +8,8 @@ import { TranscriptSection } from "@/components/content/transcript-section"
 import { AiToolsSidebar } from "@/components/content/ai-tools-sidebar"
 import { ChevronsRight } from "lucide-react"
 import { HeaderActions } from "@/components/dashboard/header-actions"
+import { PdfWorkspace } from "@/components/content/pdf-workspace"
+import { WordWorkspace } from "@/components/content/word-workspace"
 
 function CollapsedHeader() {
   const { open, toggleSidebar } = useSidebar()
@@ -92,9 +94,25 @@ export default function ContentPage() {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
                 </div>
               ) : video ? (
-                <div className="px-6 py-6">
-                  <VideoPlayer video={video} />
-                  <TranscriptSection videoId={video.id} initialTranscript={video.transcript} />
+                <div className="h-full">
+                  {(() => {
+                    const isPdf = video?.media_type === "pdf" || 
+                                  video?.source_ref?.toLowerCase().endsWith(".pdf") ||
+                                  video?.title?.toLowerCase().endsWith(".pdf");
+                    const isWord = video?.media_type === "docx" || 
+                                   video?.source_ref?.toLowerCase().endsWith(".docx") ||
+                                   video?.title?.toLowerCase().endsWith(".docx");
+
+                    if (isPdf) return <PdfWorkspace video={video} />;
+                    if (isWord) return <WordWorkspace video={video} />;
+                    
+                    return (
+                      <div className="px-6 py-6">
+                        <VideoPlayer video={video} />
+                        <TranscriptSection videoId={video.id} initialTranscript={video.transcript} />
+                      </div>
+                    );
+                  })()}
                 </div>
               ) : (
                 <div className="flex h-full items-center justify-center text-muted-foreground">

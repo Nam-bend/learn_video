@@ -58,22 +58,40 @@ async def chat(video_id: str, payload: dict, db: AsyncSession = Depends(get_db))
             # Sắp xếp lại theo thời gian để AI dễ đọc hơn
             top_chunks.sort(key=lambda x: x.start_time)
             
-            context_text = "\n".join(
-                f"[{int(c.start_time//60):02d}:{int(c.start_time%60):02d}] {c.content}" 
-                for c in top_chunks
-            )
         else:
-            context_text = "Không tìm thấy dữ liệu bổ trợ cho video này. Có thể video chưa được index."
+            top_chunks = []
+            formatted_context = "Không tìm thấy dữ liệu bổ trợ."
 
     except Exception as e:
         print(f"🔥 RAG Retrieval Error: {e}")
-        context_text = "Lỗi khi truy xuất dữ liệu từ video."
+        top_chunks = []
+        formatted_context = "Lỗi khi truy xuất dữ liệu."
+
+    # Chọn hướng dẫn trích dẫn dựa trên loại media
+    if video.media_type == "video":
+        media_name = "video"
+        citation_format = "định dạng [MM:SS]"
+        context_label = "Các đoạn trích dẫn từ video"
+        if top_chunks:
+            formatted_context = "\n".join(
+                f"[{int(c.start_time//60):02d}:{int(c.start_time%60):02d}] {c.content}" 
+                for c in top_chunks
+            )
+    else:
+        media_name = "tài liệu"
+        citation_format = "định dạng [Trang X]"
+        context_label = "Các đoạn trích dẫn từ tài liệu"
+        if top_chunks:
+            formatted_context = "\n".join(
+                f"[Trang {int(c.start_time)}] {c.content}" 
+                for c in top_chunks
+            )
 
     # Gộp system prompt vào user message để hỗ trợ streaming ổn định
     full_prompt = (
-        "Bạn là một trợ lý học tập. Hãy dựa vào những đoạn trích dẫn từ video được cung cấp để trả lời câu hỏi của người dùng. "
-        "Hãy trả lời chi tiết, súc tích và QUAN TRỌNG NHẤT: Bắt buộc đính kèm mốc thời gian định dạng [MM:SS] vào những thông tin quan trọng hoặc dẫn chứng cụ thể (dựa vào transcript).\n\n"
-        f"Các đoạn trích dẫn liên quan từ video:\n{context_text}\n\n"
+        f"Bạn là một trợ lý học tập. Hãy dựa vào những đoạn trích dẫn từ {media_name} được cung cấp để trả lời câu hỏi của người dùng. "
+        f"Hãy trả lời chi tiết, súc tích và QUAN TRỌNG NHẤT: Bắt buộc đính kèm dẫn chứng cụ thể bằng {citation_format} vào những thông tin quan trọng.\n\n"
+        f"{context_label}:\n{formatted_context}\n\n"
         f"Câu hỏi: {question}"
     )
 

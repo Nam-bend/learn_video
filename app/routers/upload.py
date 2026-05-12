@@ -10,10 +10,17 @@ router = APIRouter()
 
 @router.post("/upload")
 async def upload_video(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
-    allowed = {".mp4", ".mkv", ".avi", ".mov", ".webm"}
+    allowed_videos = {".mp4", ".mkv", ".avi", ".mov", ".webm"}
+    allowed_docs = {".pdf", ".docx"}
+    
     ext = Path(file.filename).suffix.lower()
-    if ext not in allowed:
-        raise HTTPException(400, "Định dạng file không được hỗ trợ")
+    
+    if ext in allowed_videos:
+        media_type = "video"
+    elif ext in allowed_docs:
+        media_type = ext.replace(".", "") # 'pdf' or 'docx'
+    else:
+        raise HTTPException(400, f"Định dạng file {ext} không được hỗ trợ")
 
     file_id = str(uuid.uuid4())
     filename = f"{file_id}{ext}"
@@ -28,6 +35,7 @@ async def upload_video(file: UploadFile = File(...), db: AsyncSession = Depends(
     # LƯU VÀO DATABASE
     new_video = Video(
         id=uuid.UUID(file_id),
+        media_type=media_type,
         source_type="local",
         source_ref=filename,
         title=file.filename,
@@ -37,4 +45,4 @@ async def upload_video(file: UploadFile = File(...), db: AsyncSession = Depends(
     await db.commit()
     await db.refresh(new_video)
 
-    return {"id": file_id, "filename": filename}
+    return {"id": file_id, "filename": filename, "media_type": media_type}

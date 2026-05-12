@@ -28,7 +28,7 @@ export function TranscriptSection({ videoId, initialTranscript }: TranscriptSect
     setLoading(true)
     try {
       const result = await api.transcript.generate(videoId)
-      
+
       if (result && Array.isArray(result.transcript)) {
         setTranscript(result.transcript)
         setLoading(false)
@@ -57,7 +57,7 @@ export function TranscriptSection({ videoId, initialTranscript }: TranscriptSect
             }
           }
         }, 3000)
-        
+
         // Safety timeout (5 mins)
         setTimeout(() => {
           setLoading(false)

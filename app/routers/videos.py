@@ -3,7 +3,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
 from app.models import Video
-import uuid
+import uuid, os
+from pathlib import Path
+from app.config import settings
 
 router = APIRouter()
 
@@ -64,6 +66,15 @@ async def delete_video(video_id: str, db: AsyncSession = Depends(get_db)):
     if not video:
         raise HTTPException(404, "Không tìm thấy video")
         
+    # XÓA FILE TRÊN ĐĨA
+    if video.source_type == "local" and video.source_ref:
+        file_path = Path(settings.UPLOAD_DIR) / video.source_ref
+        try:
+            if file_path.exists():
+                os.remove(file_path)
+        except Exception as e:
+            print(f"Error deleting file {file_path}: {e}")
+
     await db.delete(video)
     await db.commit()
-    return {"status": "success"}
+    return {"status": "success"}

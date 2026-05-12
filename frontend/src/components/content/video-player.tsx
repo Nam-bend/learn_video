@@ -1,6 +1,6 @@
 "use client"
 
-import { Play } from "lucide-react"
+import { Play, FileText } from "lucide-react"
 import { useEffect, useRef } from "react"
 
 export function VideoPlayer({ video }: { video: any }) {
@@ -47,12 +47,20 @@ export function VideoPlayer({ video }: { video: any }) {
           allowFullScreen
         ></iframe>
       ) : video.source_type === "local" && video.source_ref ? (
-        <video 
+        <video
           ref={videoRef}
-          controls 
+          controls
           className="h-full w-full"
           src={`http://localhost:8000/api/uploads/${video.source_ref}`}
         />
+      ) : (video.media_type === "pdf" || video.media_type === "docx") ? (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50">
+          <div className="mb-4 flex size-20 items-center justify-center rounded-3xl bg-white shadow-sm ring-1 ring-blue-100">
+            <FileText className="size-10 text-blue-500" />
+          </div>
+          <h3 className="text-[16px] font-bold text-neutral-800">Tài liệu {video.media_type.toUpperCase()}</h3>
+          <p className="mt-1 text-[13px] text-neutral-500">{video.title}</p>
+        </div>
       ) : (
         <>
           <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(16,185,129,0.08)_0%,transparent_50%,rgba(20,184,166,0.05)_100%)]" />

@@ -5,6 +5,7 @@ from app.database import get_db, AsyncSessionLocal
 from app.models import Video, VideoChunk
 from app.config import settings
 from app.utils.ai import get_embedding
+# from app.utils.extractors import extract_text_from_pdf, extract_text_from_docx
 from faster_whisper import WhisperModel
 import uuid
 from pathlib import Path
@@ -60,37 +61,54 @@ async def process_transcription_task(video_id: uuid.UUID):
             target_file = matches[0]
 
         try:
-            # Chạy whisper trong threadpool để không block event loop
-            loop = asyncio.get_event_loop()
-            result_data = await loop.run_in_executor(executor, run_whisper, str(target_file))
+            if video.media_type == "video":
+                # Chạy whisper trong threadpool để không block event loop
+                loop = asyncio.get_event_loop()
+                result_data = await loop.run_in_executor(executor, run_whisper, str(target_file))
+                
+                # Chuyển đổi định dạng whisper sang chuẩn chung
+                # (Whisper đã trả về format: [{"start": 0.0, "end": 2.0, "text": "..."}])
+                formatted_data = result_data
+            elif video.media_type == "pdf":
+                result_data = extract_text_from_pdf(str(target_file))
+                # Map 'page' sang 'start' để dùng chung logic indexing
+                formatted_data = [{"start": item["page"], "text": item["text"]} for item in result_data]
+            elif video.media_type == "docx":
+                result_data = extract_text_from_docx(str(target_file))
+                # Map 'page' (trang ảo) sang 'start'
+                formatted_data = [{"start": item["page"], "text": item["text"]} for item in result_data]
+            else:
+                raise Exception(f"Không hỗ trợ xử lý cho loại {video.media_type}")
 
             # Cập nhật kết quả
-            video.transcript = result_data
+            video.transcript = formatted_data
             video.status = "done"
 
             # --- RAG INDEXING ---
-            # Gom các đoạn transcript nhỏ thành các chunk lớn hơn (khoảng 30 giây/chunk)
+            # Gom các đoạn nhỏ thành các chunk lớn hơn
             current_chunk = ""
-            start_time = 0
+            start_ref = 0
             
-            for i, seg in enumerate(result_data):
+            for i, seg in enumerate(formatted_data):
                 if not current_chunk:
-                    start_time = seg['start']
+                    start_ref = seg['start']
                 
                 current_chunk += f" {seg['text']}"
                 
-                # Cứ sau khoảng 5 câu hoặc khi kết thúc transcript thì tạo 1 embedding
-                if (i + 1) % 5 == 0 or i == len(result_data) - 1:
+                # Indexing logic: video thì 5 segments, tài liệu thì mỗi trang 1 chunk hoặc gom lại
+                should_index = (i + 1) % 5 == 0 or i == len(formatted_data) - 1
+                
+                if should_index:
                     chunk_text = current_chunk.strip()
                     if chunk_text:
                         # Tạo embedding cho chunk
                         vector = await get_embedding(chunk_text)
                         
-                        # Lưu vào DB
+                        # Lưu vào DB (start_time lưu page number nếu là tài liệu)
                         new_chunk = VideoChunk(
                             video_id=video_id,
                             content=chunk_text,
-                            start_time=start_time,
+                            start_time=start_ref,
                             embedding=vector
                         )
                         db.add(new_chunk)
@@ -98,7 +116,7 @@ async def process_transcription_task(video_id: uuid.UUID):
                     current_chunk = ""
             
         except Exception as e:
-            print(f"🔥 Transcription/RAG Error: {e}")
+            print(f"🔥 Processing/RAG Error: {e}")
             video.status = "error"
             video.error_message = str(e)
         

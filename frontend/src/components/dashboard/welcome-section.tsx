@@ -13,7 +13,7 @@ export function WelcomeSection() {
         Đã đến lúc học,{" "}
         <span className="relative inline-block">
           <span className="bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-500 bg-clip-text text-transparent">
-            Fuoc
+            Nam
           </span>
           <span className="absolute -bottom-1 left-0 h-[3px] w-full rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 opacity-40" />
         </span>

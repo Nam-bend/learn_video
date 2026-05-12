@@ -1,6 +1,6 @@
 "use client"
 
-import { Upload, Link2, ClipboardPaste, Mic, Loader2 } from "lucide-react"
+import { Play, FileText, FileType, Link2, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useRef, useState } from "react"
 import { api } from "@/lib/api"
@@ -8,37 +8,37 @@ import { useRouter } from "next/navigation"
 
 const features = [
   {
-    icon: Upload,
-    label: "Tải lên",
-    description: "Tập tin, âm thanh,...",
-    badge: "Phổ biến",
+    icon: Play,
+    label: "Video",
+    description: "Tải lên bài giảng...",
+    badge: "Hot",
     bgGlow: "group-hover:shadow-blue-200/60",
     iconBg: "bg-blue-50 group-hover:bg-gradient-to-br group-hover:from-blue-100 group-hover:to-indigo-100",
-    type: "upload"
+    type: "video"
+  },
+  {
+    icon: FileText,
+    label: "PDF",
+    description: "Tài liệu, giáo trình...",
+    bgGlow: "group-hover:shadow-rose-200/60",
+    iconBg: "bg-rose-50 group-hover:bg-gradient-to-br group-hover:from-rose-100 group-hover:to-pink-100",
+    type: "pdf"
+  },
+  {
+    icon: FileType,
+    label: "Word",
+    description: "Văn bản, tiểu luận...",
+    bgGlow: "group-hover:shadow-sky-200/60",
+    iconBg: "bg-sky-50 group-hover:bg-gradient-to-br group-hover:from-sky-100 group-hover:to-indigo-100",
+    type: "docx"
   },
   {
     icon: Link2,
     label: "Liên kết",
-    description: "YouTube, Trang...",
+    description: "YouTube, Website...",
     bgGlow: "group-hover:shadow-violet-200/60",
     iconBg: "bg-violet-50 group-hover:bg-gradient-to-br group-hover:from-violet-100 group-hover:to-purple-100",
     type: "link"
-  },
-  {
-    icon: ClipboardPaste,
-    label: "Dán",
-    description: "Đã sao chép văn...",
-    bgGlow: "group-hover:shadow-amber-200/60",
-    iconBg: "bg-amber-50 group-hover:bg-gradient-to-br group-hover:from-amber-100 group-hover:to-orange-100",
-    type: "paste"
-  },
-  {
-    icon: Mic,
-    label: "Ghi",
-    description: "Ghi lại bài giảng",
-    bgGlow: "group-hover:shadow-rose-200/60",
-    iconBg: "bg-rose-50 group-hover:bg-gradient-to-br group-hover:from-rose-100 group-hover:to-pink-100",
-    type: "record"
   },
 ]
 
@@ -132,11 +132,19 @@ export function FeatureCards() {
   }
 
   const handleCardClick = (type: string) => {
-    if (type === "upload") {
-      fileInputRef.current?.click()
-    } else if (type === "link") {
-      // Focus on search bar or show specialized link input
+    if (type === "link") {
       document.querySelector("input")?.focus()
+      return
+    }
+
+    if (fileInputRef.current) {
+      // Set the appropriate accept filter based on the card type
+      if (type === "video") fileInputRef.current.accept = "video/*"
+      else if (type === "pdf") fileInputRef.current.accept = ".pdf"
+      else if (type === "docx") fileInputRef.current.accept = ".docx"
+      else fileInputRef.current.accept = "video/*,.pdf,.docx"
+      
+      fileInputRef.current.click()
     }
   }
 
@@ -146,7 +154,7 @@ export function FeatureCards() {
         type="file"
         ref={fileInputRef}
         className="hidden"
-        accept="video/*"
+        accept="video/*,.pdf,.docx"
         onChange={handleFileChange}
       />
       {features.map((feature, i) => (

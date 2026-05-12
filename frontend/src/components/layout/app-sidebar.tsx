@@ -144,12 +144,12 @@ function UserProfile() {
             <div className="flex min-w-0 flex-1 items-center">
               <Avatar className="size-6 shrink-0 border border-primary/10 dark:border-primary/20">
                 <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-[10px] font-semibold">
-                  FF
+                  N
                 </AvatarFallback>
               </Avatar>
               <div className="ml-[-3px] flex min-w-0 flex-1 flex-col">
                 <p className="truncate text-sm font-medium leading-tight">
-                  Fuoc Faris
+                  Nam
                 </p>
               </div>
             </div>

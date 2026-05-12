@@ -27,7 +27,7 @@ export function WorkspaceSection() {
           </div>
           <div className="flex-1 min-w-0 text-left">
             <p className="truncate text-[13px] font-medium text-foreground">
-              Không gian của Fuoc
+              Không gian của Nam
             </p>
             <p className="text-[11px] text-muted-foreground">0 mục</p>
           </div>

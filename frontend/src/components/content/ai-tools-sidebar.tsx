@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import {
   X, Plus, Headphones, FileText, HelpCircle, Layers, StickyNote,
   CalendarRange, ChevronRight, ChevronLeft, MessageSquare, ArrowUp,
@@ -258,7 +258,7 @@ function SummaryView({ videoId }: { videoId: string }) {
     try {
       const response = await fetch(`http://localhost:8000/api/summary/${videoId}${refresh ? "?refresh=true" : ""}`)
       if (!response.ok) throw new Error("API failed")
-      
+
       const reader = response.body?.getReader()
       if (!reader) throw new Error("No reader")
 
@@ -271,7 +271,7 @@ function SummaryView({ videoId }: { videoId: string }) {
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
-        
+
         const chunk = decoder.decode(value, { stream: true })
         if (accumulated === "AI_THINKING") {
           accumulated = chunk
@@ -308,11 +308,11 @@ function SummaryView({ videoId }: { videoId: string }) {
           </div>
         ) : summary === "AI_THINKING" ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
-             <div className="flex size-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-500 animate-pulse mb-2">
-                <Bot className="size-8" />
-             </div>
-             <p className="text-[14px] font-semibold text-emerald-600">AI đang phân tích video...</p>
-             <p className="text-[12px] text-muted-foreground">Đang trích xuất các ý chính quan trọng</p>
+            <div className="flex size-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-500 animate-pulse mb-2">
+              <Bot className="size-8" />
+            </div>
+            <p className="text-[14px] font-semibold text-emerald-600">AI đang phân tích video...</p>
+            <p className="text-[12px] text-muted-foreground">Đang trích xuất các ý chính quan trọng</p>
           </div>
         ) : (
           <MarkdownContent content={summary} id={`${videoId}-summary`} isStreaming={streaming} />
@@ -348,13 +348,13 @@ function MarkdownContent({ content, id, isStreaming }: { content: string, id?: s
     if (id) localStorage.setItem(`md-check-${id}`, JSON.stringify(next))
   }
 
-  const lines = content.split("\n")
+  const lines = useMemo(() => content.split("\n"), [content])
 
   return (
     <div className="space-y-2 text-[13px] leading-relaxed text-foreground">
       {lines.map((line, i) => {
         const isLastLine = i === lines.length - 1
-        
+
         if (line.startsWith("## ")) return <h2 key={i} className="mt-5 mb-2 text-[15px] font-bold text-foreground">{line.replace("## ", "")}</h2>
         if (line.startsWith("### ")) return <h3 key={i} className="mt-3 mb-1 text-[13px] font-bold text-foreground">{line.replace("### ", "")}</h3>
         if (line.startsWith("**") && line.endsWith("**")) return <p key={i} className="font-semibold text-foreground">{line.replace(/\*\*/g, "")}</p>
@@ -382,10 +382,10 @@ function MarkdownContent({ content, id, isStreaming }: { content: string, id?: s
             </span>
           </p>
         )
-        
+
         if (line.match(/^\d+\. /)) return <p key={i} className="text-foreground">{line}{isLastLine && isStreaming && <span className="inline-block w-1.5 h-3.5 ml-1 bg-emerald-500 animate-pulse align-middle" />}</p>
         if (line.trim() === "") return <div key={i} className="h-1" />
-        
+
         return (
           <p key={i} className="text-foreground/80">
             {line}
@@ -417,29 +417,42 @@ function AiContentView({
     try {
       const endpoint = dataKey === "plan" ? `/study-plan/${videoId}` : `/${dataKey}/${videoId}`
       const response = await fetch(`http://localhost:8000/api${endpoint}${refresh ? "?refresh=true" : ""}`)
-      
+
       if (!response.ok) throw new Error("API failed")
 
       const reader = response.body?.getReader()
       if (!reader) throw new Error("No reader")
 
       let accumulated = ""
+      let displayBuffer = ""
       const decoder = new TextDecoder()
       setPhase("done")
       setContent("AI_THINKING")
       setStreaming(true)
 
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        
-        const chunk = decoder.decode(value, { stream: true })
-        if (accumulated === "AI_THINKING") {
-          accumulated = chunk
-        } else {
-          accumulated += chunk
+      // Buffer updates to avoid UI stuttering (Update at ~16fps)
+      const updateInterval = setInterval(() => {
+        if (displayBuffer !== accumulated) {
+          displayBuffer = accumulated
+          setContent(displayBuffer)
         }
-        setContent(accumulated)
+      }, 60)
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          const chunk = decoder.decode(value, { stream: true })
+          if (accumulated === "AI_THINKING") {
+            accumulated = chunk
+          } else {
+            accumulated += chunk
+          }
+        }
+      } finally {
+        clearInterval(updateInterval)
+        setContent(accumulated) // Final update to ensure sync
       }
     } catch (e: any) {
       setContent(e?.message || "Đã có lỗi xảy ra.")
@@ -468,13 +481,13 @@ function AiContentView({
           </div>
         ) : content === "AI_THINKING" ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-             <div className="flex size-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 animate-pulse">
-                <Icon className="size-9" />
-             </div>
-             <div>
-                <p className="text-[15px] font-bold text-foreground">AI đang xây dựng {title}...</p>
-                <p className="mt-1 text-[12px] text-muted-foreground max-w-[200px]">Tối ưu hóa kiến thức từ video để phù hợp nhất với bạn</p>
-             </div>
+            <div className="flex size-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 animate-pulse">
+              <Icon className="size-9" />
+            </div>
+            <div>
+              <p className="text-[15px] font-bold text-foreground">AI đang xây dựng {title}...</p>
+              <p className="mt-1 text-[12px] text-muted-foreground max-w-[200px]">Tối ưu hóa kiến thức từ video để phù hợp nhất với bạn</p>
+            </div>
           </div>
         ) : (
           <MarkdownContent content={content} id={`${videoId}-${dataKey}`} isStreaming={streaming} />
@@ -1098,6 +1111,18 @@ function ChatView({ videoId }: { videoId: string }) {
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }) }, [messages])
 
+  useEffect(() => {
+    const handleReady = () => {
+      const content = localStorage.getItem("pending-chat-content")
+      if (content) {
+        setInput(content)
+        localStorage.removeItem("pending-chat-content")
+      }
+    }
+    window.addEventListener("chat-content-ready", handleReady)
+    return () => window.removeEventListener("chat-content-ready", handleReady)
+  }, [])
+
   const send = async (text?: string) => {
     const content = text ?? input
     if (!content.trim() || loading) return
@@ -1117,26 +1142,41 @@ function ChatView({ videoId }: { videoId: string }) {
       })
 
       if (!response.ok) throw new Error("API failed")
-      
+
       const reader = response.body?.getReader()
       if (!reader) throw new Error("No reader")
 
       let accumulated = ""
+      let displayBuffer = ""
       const decoder = new TextDecoder()
       let firstChunk = true
 
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        
-        const chunk = decoder.decode(value, { stream: true })
-        if (firstChunk) {
-          accumulated = chunk
-          firstChunk = false
-        } else {
-          accumulated += chunk
+      const updateInterval = setInterval(() => {
+        if (displayBuffer !== accumulated) {
+          displayBuffer = accumulated
+          setMessages(p => {
+            const next = [...p]
+            next[next.length - 1] = { role: "assistant", content: displayBuffer }
+            return next
+          })
         }
-        
+      }, 60)
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          const chunk = decoder.decode(value, { stream: true })
+          if (firstChunk) {
+            accumulated = chunk
+            firstChunk = false
+          } else {
+            accumulated += chunk
+          }
+        }
+      } finally {
+        clearInterval(updateInterval)
         setMessages(p => {
           const next = [...p]
           next[next.length - 1] = { role: "assistant", content: accumulated }
@@ -1206,14 +1246,14 @@ function ChatView({ videoId }: { videoId: string }) {
             ) : (
               <div className="flex-1 min-w-0 rounded-2xl rounded-tl-sm bg-white border border-neutral-100 shadow-sm px-4 py-3">
                 {msg.content === "AI_THINKING" ? (
-                   <div className="flex items-center gap-3 py-1">
-                      <div className="flex gap-1">
-                        <span className="size-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-                        <span className="size-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-                        <span className="size-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '300ms' }} />
-                      </div>
-                      <span className="text-[12px] text-emerald-600 font-medium animate-pulse">AI đang tìm kiếm thông tin...</span>
-                   </div>
+                  <div className="flex items-center gap-3 py-1">
+                    <div className="flex gap-1">
+                      <span className="size-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="size-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="size-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                    <span className="text-[12px] text-emerald-600 font-medium animate-pulse">AI đang tìm kiếm thông tin...</span>
+                  </div>
                 ) : (
                   <AiMessageContent content={msg.content} />
                 )}
@@ -1267,6 +1307,23 @@ export function AiToolsSidebar({ videoId }: { videoId: string }) {
       })
     }
   }, [activeTool])
+
+  useEffect(() => {
+    const handleAddToChat = (e: any) => {
+      const { content, action } = e.detail
+      const chatTool = tools.find(t => t.id === "chat")
+      if (chatTool) {
+        setActiveTool(chatTool)
+        localStorage.setItem("pending-chat-content", content)
+        // Delay to allow ChatView to mount
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent("chat-content-ready"))
+        }, 100)
+      }
+    }
+    window.addEventListener("add-to-chat", handleAddToChat)
+    return () => window.removeEventListener("add-to-chat", handleAddToChat)
+  }, [])
 
   if (!open) return (
     <div className="flex h-full items-start pt-4">
