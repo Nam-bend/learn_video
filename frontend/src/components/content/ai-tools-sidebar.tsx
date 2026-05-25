@@ -309,7 +309,7 @@ function SummaryView({ videoId }: { videoId: string }) {
         v.title?.toLowerCase().endsWith(".pdf") || v.title?.toLowerCase().endsWith(".docx") ||
         v.source_ref?.toLowerCase().endsWith(".pdf") || v.source_ref?.toLowerCase().endsWith(".docx");
       setIsDoc(!!doc)
-    }).catch(() => {})
+    }).catch(() => { })
   }, [videoId])
 
   const generate = async (refresh = false) => {
@@ -1249,7 +1249,7 @@ function ChatView({ videoId }: { videoId: string }) {
         v.title?.toLowerCase().endsWith(".pdf") || v.title?.toLowerCase().endsWith(".docx") ||
         v.source_ref?.toLowerCase().endsWith(".pdf") || v.source_ref?.toLowerCase().endsWith(".docx");
       setIsDoc(!!doc)
-    }).catch(() => {})
+    }).catch(() => { })
   }, [videoId])
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }) }, [messages])
@@ -1445,12 +1445,25 @@ export function AiToolsSidebar({ videoId }: { videoId: string }) {
   const [activeTool, setActiveTool] = useState<(typeof tools)[0] | null>(null)
   const [renderedTools, setRenderedTools] = useState<Set<string>>(new Set())
   const prevVideoIdRef = useRef<string>(videoId)
+  const [isDoc, setIsDoc] = useState(false)
+
+  useEffect(() => {
+    api.videos.get(videoId).then(v => {
+      const doc = v.media_type === "pdf" || v.media_type === "docx" ||
+        v.title?.toLowerCase().endsWith(".pdf") || v.title?.toLowerCase().endsWith(".docx") ||
+        v.source_ref?.toLowerCase().endsWith(".pdf") || v.source_ref?.toLowerCase().endsWith(".docx");
+      setIsDoc(!!doc)
+    }).catch(() => {
+      setIsDoc(false)
+    })
+  }, [videoId])
 
   // Reset renderedTools khi đổi video → các tool sẽ unmount & remount fresh
   useEffect(() => {
     if (prevVideoIdRef.current !== videoId) {
       prevVideoIdRef.current = videoId
       setRenderedTools(new Set())
+      setActiveTool(null)
     }
   }, [videoId])
 
@@ -1515,7 +1528,7 @@ export function AiToolsSidebar({ videoId }: { videoId: string }) {
         <div className="flex-1 overflow-y-auto px-4 py-4">
           <p className="mb-3 text-[13px] font-semibold text-foreground">Tạo ra</p>
           <div className="grid grid-cols-2 gap-2">
-            {tools.map(tool => (
+            {tools.filter(tool => !(tool.id === "export" && isDoc)).map(tool => (
               <button key={tool.id} onClick={() => setActiveTool(tool)}
                 className="group flex flex-col gap-3 rounded-xl border border-neutral-100 bg-white p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-neutral-200 hover:shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.1)] transition-colors group-hover:from-emerald-100 group-hover:to-teal-100">
