@@ -166,20 +166,70 @@ function QuizView({ videoId, onBack }: { videoId: string; onBack: () => void }) 
         {result.wrong_answers.length > 0 && (
           <div className="space-y-3">
             <p className="text-[12px] font-bold uppercase tracking-wider text-muted-foreground">Câu sai</p>
-            {result.wrong_answers.map((w, i) => (
-              <div key={i} className="rounded-xl border border-red-100 bg-red-50/50 p-4">
-                <p className="text-[13px] font-semibold text-foreground">{w.question}</p>
-                <p className="mt-2 flex items-center gap-1.5 text-[12px] text-red-600">
-                  <XCircle className="size-3.5 shrink-0" /> Bạn chọn: {w.user_answer !== null ? ["A", "B", "C", "D"][w.user_answer] : "—"}
-                </p>
-                <p className="mt-1 flex items-center gap-1.5 text-[12px] text-emerald-700">
-                  <CheckCircle2 className="size-3.5 shrink-0" /> Đúng: {["A", "B", "C", "D"][w.correct_answer]}
-                </p>
-                {w.explanation && <p className="mt-2 text-[12px] text-muted-foreground italic">{w.explanation}</p>}
-              </div>
-            ))}
+            {result.wrong_answers.map((w, i) => {
+              const questionObj = questions.find(q => q.question === w.question)
+              const userText = questionObj && w.user_answer !== null ? questionObj.options[w.user_answer] : "—"
+              const correctText = questionObj ? questionObj.options[w.correct_answer] : ""
+              return (
+                <div key={i} className="rounded-xl border border-red-100 bg-red-50/50 p-4">
+                  <p className="text-[13px] font-semibold text-foreground">{w.question}</p>
+                  <p className="mt-2 flex items-center gap-1.5 text-[12px] text-red-600">
+                    <XCircle className="size-3.5 shrink-0" /> Bạn chọn: {w.user_answer !== null ? ["A", "B", "C", "D"][w.user_answer] : "—"}
+                  </p>
+                  <p className="mt-1 flex items-center gap-1.5 text-[12px] text-emerald-700">
+                    <CheckCircle2 className="size-3.5 shrink-0" /> Đúng: {["A", "B", "C", "D"][w.correct_answer]}
+                  </p>
+                  {w.explanation && <p className="mt-2 text-[12px] text-muted-foreground italic">{w.explanation}</p>}
+
+                  <button
+                    onClick={() => {
+                      const prompt = `Tôi vừa làm sai câu hỏi trắc nghiệm này về video học tập:
+Câu hỏi: "${w.question}"
+Đáp án tôi chọn: "${["A", "B", "C", "D"][w.user_answer]}. ${userText}"
+Đáp án đúng là: "${["A", "B", "C", "D"][w.correct_answer]}. ${correctText}"
+
+Hãy giải thích chi tiết tại sao đáp án của tôi lại sai, đáp án kia mới là chính xác, và liên hệ với các ví dụ, kiến thức thực tế liên quan đến nội dung video học tập này để tôi hiểu sâu và dễ nhớ hơn nhé.`
+                      window.dispatchEvent(new CustomEvent("add-to-chat", {
+                        detail: { content: prompt }
+                      }))
+                    }}
+                    className="mt-3 flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-2.5 py-1 text-[11px] font-bold text-red-700 shadow-sm transition-all hover:bg-red-50 hover:text-red-800 active:scale-95"
+                  >
+                    <Bot className="size-3.5" /> Hỏi AI giải thích câu này
+                  </button>
+                </div>
+              )
+            })}
           </div>
         )}
+
+        {result.wrong_answers.length > 0 && (
+          <button
+            onClick={() => {
+              let prompt = `Tôi vừa làm xong bài trắc nghiệm về video học tập này và làm sai một số câu hỏi. Hãy giải thích chi tiết từng câu tại sao tôi sai, đáp án đúng là gì và liên hệ ví dụ thực tế liên quan đến nội dung bài học để tôi rút kinh nghiệm nhé:\n\n`
+              result.wrong_answers.forEach((w, idx) => {
+                const questionObj = questions.find(q => q.question === w.question)
+                const userText = questionObj && w.user_answer !== null ? questionObj.options[w.user_answer] : "—"
+                const correctText = questionObj ? questionObj.options[w.correct_answer] : ""
+                prompt += `${idx + 1}. Câu hỏi: "${w.question}"\n`
+                prompt += `   - Đáp án tôi chọn: "${["A", "B", "C", "D"][w.user_answer]}. ${userText}"\n`
+                prompt += `   - Đáp án đúng: "${["A", "B", "C", "D"][w.correct_answer]}. ${correctText}"\n`
+                if (w.explanation) {
+                  prompt += `   - Giải thích ngắn gọn từ đề bài: "${w.explanation}"\n`
+                }
+                prompt += `\n`
+              })
+
+              window.dispatchEvent(new CustomEvent("add-to-chat", {
+                detail: { content: prompt }
+              }))
+            }}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 py-2.5 text-[13px] font-bold text-red-700 shadow-sm transition-all hover:bg-red-100 hover:text-red-800 active:scale-[0.98]"
+          >
+            <Bot className="size-4" /> Hỏi AI giải thích tất cả câu sai
+          </button>
+        )}
+
         <button onClick={restart} className="flex items-center justify-center gap-2 rounded-xl bg-emerald-500 py-2.5 text-[13px] font-semibold text-white transition-all hover:bg-emerald-600">
           <RefreshCw className="size-3.5" /> Làm lại
         </button>
@@ -250,50 +300,100 @@ function SummaryView({ videoId }: { videoId: string }) {
   const [phase, setPhase] = useState<"idle" | "loading" | "done" | "error">("idle")
   const [summary, setSummary] = useState("")
   const [streaming, setStreaming] = useState(false)
+  const [isDoc, setIsDoc] = useState(false)
+  const abortRef = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    api.videos.get(videoId).then(v => {
+      const doc = v.media_type === "pdf" || v.media_type === "docx" ||
+        v.title?.toLowerCase().endsWith(".pdf") || v.title?.toLowerCase().endsWith(".docx") ||
+        v.source_ref?.toLowerCase().endsWith(".pdf") || v.source_ref?.toLowerCase().endsWith(".docx");
+      setIsDoc(!!doc)
+    }).catch(() => {})
+  }, [videoId])
 
   const generate = async (refresh = false) => {
+    // Abort any in-flight request
+    abortRef.current?.abort()
+    const ctrl = new AbortController()
+    abortRef.current = ctrl
+
     setPhase("loading")
     setSummary("")
     setStreaming(false)
     try {
-      const response = await fetch(`http://localhost:8000/api/summary/${videoId}${refresh ? "?refresh=true" : ""}`)
+      const response = await fetch(`http://localhost:8000/api/summary/${videoId}${refresh ? "?refresh=true" : ""}`, { signal: ctrl.signal })
       if (!response.ok) throw new Error("API failed")
+
+      // Check if response is cached JSON to display instantly
+      const contentType = response.headers.get("content-type")
+      if (contentType && contentType.includes("application/json")) {
+        const data = await response.json()
+        if (data.status === "cached") {
+          setSummary(data.summary)
+          setPhase("done")
+          setStreaming(false)
+          return
+        }
+      }
 
       const reader = response.body?.getReader()
       if (!reader) throw new Error("No reader")
 
       let accumulated = ""
+      let displayBuffer = ""
       const decoder = new TextDecoder()
       setPhase("done")
       setSummary("AI_THINKING")
       setStreaming(true)
 
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        const chunk = decoder.decode(value, { stream: true })
-        if (accumulated === "AI_THINKING") {
-          accumulated = chunk
-        } else {
-          accumulated += chunk
+      // Buffer updates to avoid UI stuttering (Update at ~16fps)
+      const updateInterval = setInterval(() => {
+        if (displayBuffer !== accumulated) {
+          displayBuffer = accumulated
+          setSummary(displayBuffer)
         }
-        setSummary(accumulated)
+      }, 60)
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          if (ctrl.signal.aborted) break
+
+          const chunk = decoder.decode(value, { stream: true })
+          if (accumulated === "AI_THINKING") {
+            accumulated = chunk
+          } else {
+            accumulated += chunk
+          }
+        }
+      } finally {
+        clearInterval(updateInterval)
+        if (!ctrl.signal.aborted) {
+          setSummary(accumulated) // Final update to ensure sync
+        }
       }
     } catch (e: any) {
+      if (e?.name === "AbortError") return // Silently ignore aborted requests
       setSummary(e?.message || "Đã có lỗi xảy ra.")
       setPhase("error")
     } finally {
-      setStreaming(false)
+      if (!ctrl.signal.aborted) setStreaming(false)
     }
   }
 
-  useEffect(() => { generate() }, [videoId])
+  useEffect(() => {
+    generate()
+    return () => { abortRef.current?.abort() }
+  }, [videoId])
 
   if (phase === "idle" || phase === "loading") return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3">
       <Loader2 className="size-7 animate-spin text-emerald-500" />
-      <p className="text-[13px] text-muted-foreground font-medium">AI đang đọc video...</p>
+      <p className="text-[13px] text-muted-foreground font-medium">
+        {isDoc ? "AI đang đọc tài liệu..." : "AI đang đọc video..."}
+      </p>
       <p className="text-[11px] text-muted-foreground opacity-60">Chuẩn bị tóm tắt trong giây lát</p>
     </div>
   )
@@ -311,7 +411,9 @@ function SummaryView({ videoId }: { videoId: string }) {
             <div className="flex size-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-500 animate-pulse mb-2">
               <Bot className="size-8" />
             </div>
-            <p className="text-[14px] font-semibold text-emerald-600">AI đang phân tích video...</p>
+            <p className="text-[14px] font-semibold text-emerald-600">
+              {isDoc ? "AI đang phân tích tài liệu..." : "AI đang phân tích video..."}
+            </p>
             <p className="text-[12px] text-muted-foreground">Đang trích xuất các ý chính quan trọng</p>
           </div>
         ) : (
@@ -409,14 +511,19 @@ function AiContentView({
   const [phase, setPhase] = useState<"idle" | "loading" | "done" | "error">("idle")
   const [content, setContent] = useState("")
   const [streaming, setStreaming] = useState(false)
+  const abortRef = useRef<AbortController | null>(null)
 
   const generate = async (refresh = false) => {
+    abortRef.current?.abort()
+    const ctrl = new AbortController()
+    abortRef.current = ctrl
+
     setPhase("loading")
     setContent("")
     setStreaming(false)
     try {
       const endpoint = dataKey === "plan" ? `/study-plan/${videoId}` : `/${dataKey}/${videoId}`
-      const response = await fetch(`http://localhost:8000/api${endpoint}${refresh ? "?refresh=true" : ""}`)
+      const response = await fetch(`http://localhost:8000/api${endpoint}${refresh ? "?refresh=true" : ""}`, { signal: ctrl.signal })
 
       if (!response.ok) throw new Error("API failed")
 
@@ -442,6 +549,7 @@ function AiContentView({
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
+          if (ctrl.signal.aborted) break
 
           const chunk = decoder.decode(value, { stream: true })
           if (accumulated === "AI_THINKING") {
@@ -452,17 +560,21 @@ function AiContentView({
         }
       } finally {
         clearInterval(updateInterval)
-        setContent(accumulated) // Final update to ensure sync
+        if (!ctrl.signal.aborted) setContent(accumulated)
       }
     } catch (e: any) {
+      if (e?.name === "AbortError") return
       setContent(e?.message || "Đã có lỗi xảy ra.")
       setPhase("error")
     } finally {
-      setStreaming(false)
+      if (!ctrl.signal.aborted) setStreaming(false)
     }
   }
 
-  useEffect(() => { generate() }, [videoId])
+  useEffect(() => {
+    generate()
+    return () => { abortRef.current?.abort() }
+  }, [videoId])
 
   if (phase === "idle" || phase === "loading") return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3">
@@ -742,21 +854,32 @@ function ExportPdfView({ videoId }: { videoId: string }) {
   const [plan, setPlan] = useState("")
   const containerRef = useRef<HTMLDivElement>(null)
 
+  const fetchText = async (url: string) => {
+    try {
+      const res = await fetch(url)
+      if (!res.ok) return ""
+      return await res.text()
+    } catch (err) {
+      console.error(`Error fetching text from ${url}:`, err)
+      return ""
+    }
+  }
+
   const handleDownloadMarkdown = async () => {
     setPhase("loading")
     try {
-      const [s, n, p] = await Promise.all([
-        includeSummary ? api.summary.get(videoId).catch(() => ({ summary: "" })) : Promise.resolve({ summary: "" }),
+      const [summaryText, notesData, planText] = await Promise.all([
+        includeSummary ? fetchText(`http://localhost:8000/api/summary/${videoId}`) : Promise.resolve(""),
         includeNotes ? api.notes.get(videoId).catch(() => ({ notes: "" })) : Promise.resolve({ notes: "" }),
-        includeStudyPlan ? api.studyPlan.get(videoId).catch(() => ({ plan: "" })) : Promise.resolve({ plan: "" }),
+        includeStudyPlan ? fetchText(`http://localhost:8000/api/study-plan/${videoId}`) : Promise.resolve(""),
       ])
 
       let md = `# Tài Liệu Học Tập\n*Ngày tạo: ${new Date().toLocaleDateString('vi-VN')}*\n\n`
-      if (includeSummary && s.summary) md += `## 📄 Tóm tắt nội dung\n${s.summary}\n\n`
-      if (includeStudyPlan && (p as any).plan) md += `## 📅 Kế hoạch học tập\n${(p as any).plan}\n\n`
-      if (includeNotes && n.notes) {
+      if (includeSummary && summaryText) md += `## 📄 Tóm tắt nội dung\n${summaryText}\n\n`
+      if (includeStudyPlan && planText) md += `## 📅 Kế hoạch học tập\n${planText}\n\n`
+      if (includeNotes && notesData.notes) {
         // Convert HTML notes to simple MD (strip tags)
-        const plainNotes = n.notes.replace(/<[^>]*>/g, (tag: string) => {
+        const plainNotes = notesData.notes.replace(/<[^>]*>/g, (tag: string) => {
           if (tag.startsWith('<h')) return '\n### '
           if (tag.startsWith('<li>')) return '\n- '
           if (tag === '<br>' || tag === '</p>') return '\n'
@@ -773,7 +896,8 @@ function ExportPdfView({ videoId }: { videoId: string }) {
       a.click()
       setPhase("done")
       setTimeout(() => setPhase("idle"), 3000)
-    } catch {
+    } catch (err) {
+      console.error("Markdown download error:", err)
       setPhase("error")
     }
   }
@@ -781,14 +905,14 @@ function ExportPdfView({ videoId }: { videoId: string }) {
   const prepareAndDownload = async () => {
     setPhase("loading")
     try {
-      const [s, n, p] = await Promise.all([
-        includeSummary ? api.summary.get(videoId).catch(() => ({ summary: "" })) : Promise.resolve({ summary: "" }),
+      const [summaryText, notesData, planText] = await Promise.all([
+        includeSummary ? fetchText(`http://localhost:8000/api/summary/${videoId}`) : Promise.resolve(""),
         includeNotes ? api.notes.get(videoId).catch(() => ({ notes: "" })) : Promise.resolve({ notes: "" }),
-        includeStudyPlan ? api.studyPlan.get(videoId).catch(() => ({ plan: "" })) : Promise.resolve({ plan: "" }),
+        includeStudyPlan ? fetchText(`http://localhost:8000/api/study-plan/${videoId}`) : Promise.resolve(""),
       ])
-      setSummary(s.summary || "")
-      setNotes(n.notes || "")
-      setPlan((p as any).plan || "")
+      setSummary(summaryText)
+      setNotes(notesData.notes || "")
+      setPlan(planText)
 
       // Give React a moment to render the off-screen container
       setTimeout(async () => {
@@ -992,10 +1116,10 @@ function ExportPdfView({ videoId }: { videoId: string }) {
 }
 
 
-// Parses inline markdown: **bold**, *italic*, and [MM:SS] timestamp buttons
+// Parses inline markdown: **bold**, *italic*, [MM:SS] timestamps, and [Trang X] page buttons
 function InlineMarkdown({ text }: { text: string }) {
-  // Split on timestamps and bold/italic
-  const tokens = text.split(/(\[\d{1,2}:\d{2}\]|\*\*[^*]+\*\*|\*[^*]+\*)/g)
+  // Split on timestamps, page citations, and bold/italic
+  const tokens = text.split(/(\[\d{1,2}:\d{2}\]|\[Trang \d+\]|\*\*[^*]+\*\*|\*[^*]+\*)/g)
   return (
     <>
       {tokens.map((token, i) => {
@@ -1007,6 +1131,17 @@ function InlineMarkdown({ text }: { text: string }) {
               onClick={() => window.dispatchEvent(new CustomEvent('seek-video', { detail: seconds }))}
               className="inline-flex items-center gap-0.5 text-emerald-600 font-semibold bg-emerald-50 border border-emerald-200/70 px-1.5 py-0.5 rounded-md text-[11px] hover:bg-emerald-100 mx-0.5 transition-colors align-middle">
               ▶ {token}
+            </button>
+          )
+        }
+        const pageMatch = token.match(/^\[Trang (\d+)\]$/)
+        if (pageMatch) {
+          const pageNum = parseInt(pageMatch[1])
+          return (
+            <button key={i}
+              onClick={() => window.dispatchEvent(new CustomEvent('seek-page', { detail: pageNum }))}
+              className="inline-flex items-center gap-0.5 text-blue-600 font-semibold bg-blue-50 border border-blue-200/70 px-1.5 py-0.5 rounded-md text-[11px] hover:bg-blue-100 mx-0.5 transition-colors align-middle">
+              📖 {token}
             </button>
           )
         }
@@ -1099,6 +1234,7 @@ function ChatView({ videoId }: { videoId: string }) {
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
   const [fetching, setFetching] = useState(true)
+  const [isDoc, setIsDoc] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -1107,6 +1243,13 @@ function ChatView({ videoId }: { videoId: string }) {
       .then(d => setMessages(Array.isArray(d) ? d : []))
       .catch(() => { })
       .finally(() => setFetching(false))
+
+    api.videos.get(videoId).then(v => {
+      const doc = v.media_type === "pdf" || v.media_type === "docx" ||
+        v.title?.toLowerCase().endsWith(".pdf") || v.title?.toLowerCase().endsWith(".docx") ||
+        v.source_ref?.toLowerCase().endsWith(".pdf") || v.source_ref?.toLowerCase().endsWith(".docx");
+      setIsDoc(!!doc)
+    }).catch(() => {})
   }, [videoId])
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }) }, [messages])
@@ -1115,13 +1258,13 @@ function ChatView({ videoId }: { videoId: string }) {
     const handleReady = () => {
       const content = localStorage.getItem("pending-chat-content")
       if (content) {
-        setInput(content)
+        send(content)
         localStorage.removeItem("pending-chat-content")
       }
     }
     window.addEventListener("chat-content-ready", handleReady)
     return () => window.removeEventListener("chat-content-ready", handleReady)
-  }, [])
+  }, [loading])
 
   const send = async (text?: string) => {
     const content = text ?? input
@@ -1211,7 +1354,9 @@ function ChatView({ videoId }: { videoId: string }) {
             </div>
             <p className="text-[14px] font-semibold text-foreground">Trợ lý học tập AI</p>
             <p className="mt-1 text-[12px] text-muted-foreground text-center max-w-[200px]">
-              Đặt câu hỏi về nội dung video, AI sẽ trả lời kèm mốc thời gian
+              {isDoc
+                ? "Đặt câu hỏi về nội dung tài liệu, AI sẽ trả lời kèm số trang cụ thể"
+                : "Đặt câu hỏi về nội dung video, AI sẽ trả lời kèm mốc thời gian"}
             </p>
             <div className="mt-5 flex flex-col gap-2 w-full">
               {QUICK_SUGGESTIONS.map(s => (
@@ -1274,7 +1419,7 @@ function ChatView({ videoId }: { videoId: string }) {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === "Enter" && !e.shiftKey && send()}
-            placeholder="Hỏi về nội dung video..."
+            placeholder={isDoc ? "Hỏi về nội dung tài liệu..." : "Hỏi về nội dung video..."}
             className="flex-1 bg-transparent text-[13px] outline-none placeholder:text-neutral-400 py-0.5"
             disabled={loading}
           />
@@ -1285,7 +1430,9 @@ function ChatView({ videoId }: { videoId: string }) {
             <ArrowUp className="size-3.5" />
           </button>
         </div>
-        <p className="mt-1.5 text-center text-[10px] text-neutral-400">AI trả lời dựa trên transcript video</p>
+        <p className="mt-1.5 text-center text-[10px] text-neutral-400">
+          {isDoc ? "AI trả lời dựa trên tài liệu gốc" : "AI trả lời dựa trên transcript video"}
+        </p>
       </div>
     </>
   )
@@ -1297,6 +1444,15 @@ export function AiToolsSidebar({ videoId }: { videoId: string }) {
   const [open, setOpen] = useState(true)
   const [activeTool, setActiveTool] = useState<(typeof tools)[0] | null>(null)
   const [renderedTools, setRenderedTools] = useState<Set<string>>(new Set())
+  const prevVideoIdRef = useRef<string>(videoId)
+
+  // Reset renderedTools khi đổi video → các tool sẽ unmount & remount fresh
+  useEffect(() => {
+    if (prevVideoIdRef.current !== videoId) {
+      prevVideoIdRef.current = videoId
+      setRenderedTools(new Set())
+    }
+  }, [videoId])
 
   useEffect(() => {
     if (activeTool) {
@@ -1306,7 +1462,7 @@ export function AiToolsSidebar({ videoId }: { videoId: string }) {
         return next
       })
     }
-  }, [activeTool])
+  }, [activeTool, videoId])
 
   useEffect(() => {
     const handleAddToChat = (e: any) => {
@@ -1321,8 +1477,19 @@ export function AiToolsSidebar({ videoId }: { videoId: string }) {
         }, 100)
       }
     }
+    const handleOpenTool = (e: any) => {
+      const toolId = e.detail
+      const tool = tools.find(t => t.id === toolId)
+      if (tool) {
+        setActiveTool(tool)
+      }
+    }
     window.addEventListener("add-to-chat", handleAddToChat)
-    return () => window.removeEventListener("add-to-chat", handleAddToChat)
+    window.addEventListener("open-tool", handleOpenTool)
+    return () => {
+      window.removeEventListener("add-to-chat", handleAddToChat)
+      window.removeEventListener("open-tool", handleOpenTool)
+    }
   }, [])
 
   if (!open) return (
@@ -1389,7 +1556,7 @@ export function AiToolsSidebar({ videoId }: { videoId: string }) {
           {renderedTools.has("quiz") && <QuizView videoId={videoId} onBack={() => setActiveTool(null)} />}
         </div>
         <div className={cn("flex flex-1 flex-col overflow-hidden", activeTool?.id !== "history" && "hidden")}>
-          {renderedTools.has("history") && <HistoryView videoId={videoId} />}
+          {activeTool?.id === "history" && <HistoryView videoId={videoId} />}
         </div>
         <div className={cn("flex flex-1 flex-col overflow-hidden", activeTool?.id !== "summary" && "hidden")}>
           {renderedTools.has("summary") && <SummaryView videoId={videoId} />}

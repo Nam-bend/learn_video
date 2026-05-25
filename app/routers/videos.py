@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm.attributes import flag_modified
 from app.database import get_db
 from app.models import Video
 import uuid, os
@@ -28,13 +29,19 @@ async def get_video_info(video_id: str, db: AsyncSession = Depends(get_db)):
     video = result.scalar_one_or_none()
     if not video:
         raise HTTPException(404, "Không tìm thấy video")
+    
+    translated = None
+    if video.content_cache and "translated_transcript" in video.content_cache:
+        translated = video.content_cache["translated_transcript"]
+        
     return {
         "id": str(video.id), 
         "title": video.title, 
         "status": video.status,
         "source_type": video.source_type,
         "source_ref": video.source_ref,
-        "transcript": video.transcript 
+        "transcript": video.transcript,
+        "translated_transcript": translated
     }
 
 @router.get("/videos")
@@ -78,3 +85,36 @@ async def delete_video(video_id: str, db: AsyncSession = Depends(get_db)):
     await db.delete(video)
     await db.commit()
     return {"status": "success"}
+
+@router.post("/video-info/{video_id}/translate")
+async def translate_transcript(video_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Video).where(Video.id == uuid.UUID(video_id)))
+    video = result.scalar_one_or_none()
+    if not video:
+        raise HTTPException(404, "Không tìm thấy video")
+    
+    if not video.transcript:
+        raise HTTPException(400, "Video chưa có bản ghi để dịch")
+    
+    cache = video.content_cache or {}
+    if "translated_transcript" in cache:
+        cached_trans = cache["translated_transcript"]
+        # Kiểm tra nếu bản dịch bị trùng khớp hoàn toàn với bản gốc (tức là lần trước bị lỗi nên fallback tiếng Anh)
+        # thì bỏ qua cache để dịch lại sang tiếng Việt
+        is_same = False
+        if cached_trans and len(cached_trans) == len(video.transcript):
+            is_same = all(
+                cached_trans[idx]["text"] == video.transcript[idx]["text"] 
+                for idx in range(min(5, len(video.transcript)))
+            )
+        if not is_same:
+            return {"translated_transcript": cached_trans}
+        
+    from app.utils.ai import translate_transcript_list
+    translated_list = await translate_transcript_list(video.transcript, model_name="gpt-4o-mini")
+                
+    video.content_cache = {**cache, "translated_transcript": translated_list}
+    flag_modified(video, "content_cache")
+    await db.commit()
+    
+    return {"translated_transcript": translated_list}

@@ -4,8 +4,8 @@ from sqlalchemy import select
 from app.database import get_db, AsyncSessionLocal
 from app.models import Video, VideoChunk
 from app.config import settings
+from app.utils.extractors import extract_text_from_pdf, extract_text_from_docx
 from app.utils.ai import get_embedding
-# from app.utils.extractors import extract_text_from_pdf, extract_text_from_docx
 from faster_whisper import WhisperModel
 import uuid
 from pathlib import Path
@@ -69,51 +69,103 @@ async def process_transcription_task(video_id: uuid.UUID):
                 # Chuyển đổi định dạng whisper sang chuẩn chung
                 # (Whisper đã trả về format: [{"start": 0.0, "end": 2.0, "text": "..."}])
                 formatted_data = result_data
-            elif video.media_type == "pdf":
-                result_data = extract_text_from_pdf(str(target_file))
-                # Map 'page' sang 'start' để dùng chung logic indexing
-                formatted_data = [{"start": item["page"], "text": item["text"]} for item in result_data]
-            elif video.media_type == "docx":
-                result_data = extract_text_from_docx(str(target_file))
-                # Map 'page' (trang ảo) sang 'start'
+            elif video.media_type in ("pdf", "docx"):
+                if video.media_type == "pdf":
+                    result_data = extract_text_from_pdf(str(target_file))
+                else:
+                    result_data = extract_text_from_docx(str(target_file))
+                
                 formatted_data = [{"start": item["page"], "text": item["text"]} for item in result_data]
             else:
                 raise Exception(f"Không hỗ trợ xử lý cho loại {video.media_type}")
 
-            # Cập nhật kết quả
+            # Cập nhật kết quả transcript và lưu vào DB ngay lập tức để UI hiển thị trước
             video.transcript = formatted_data
             video.status = "done"
+            await db.commit()
 
             # --- RAG INDEXING ---
-            # Gom các đoạn nhỏ thành các chunk lớn hơn
-            current_chunk = ""
-            start_ref = 0
+            chunks_to_index = []
             
-            for i, seg in enumerate(formatted_data):
-                if not current_chunk:
-                    start_ref = seg['start']
+            if video.media_type == "video":
+                # Thuật toán chunking cho Video: gom theo từ (~180 từ), gối đầu (overlap) 1 segment
+                target_words = 180
+                overlap_segments_count = 1
                 
-                current_chunk += f" {seg['text']}"
-                
-                # Indexing logic: video thì 5 segments, tài liệu thì mỗi trang 1 chunk hoặc gom lại
-                should_index = (i + 1) % 5 == 0 or i == len(formatted_data) - 1
-                
-                if should_index:
-                    chunk_text = current_chunk.strip()
-                    if chunk_text:
-                        # Tạo embedding cho chunk
-                        vector = await get_embedding(chunk_text)
-                        
-                        # Lưu vào DB (start_time lưu page number nếu là tài liệu)
-                        new_chunk = VideoChunk(
-                            video_id=video_id,
-                            content=chunk_text,
-                            start_time=start_ref,
-                            embedding=vector
-                        )
-                        db.add(new_chunk)
+                i = 0
+                n = len(formatted_data)
+                while i < n:
+                    current_chunk_segs = []
+                    word_count = 0
                     
-                    current_chunk = ""
+                    # Thêm các segments vào chunk cho đến khi đủ số từ
+                    j = i
+                    while j < n:
+                        seg = formatted_data[j]
+                        current_chunk_segs.append(seg)
+                        words_in_seg = len(seg['text'].split())
+                        word_count += words_in_seg
+                        
+                        # Dừng nếu đã vượt quá target_words
+                        if word_count >= target_words:
+                            break
+                        j += 1
+                    
+                    if current_chunk_segs:
+                        chunk_text = " ".join(s['text'] for s in current_chunk_segs).strip()
+                        start_ref = current_chunk_segs[0]['start']
+                        chunks_to_index.append((chunk_text, start_ref))
+                        
+                    # Tính bước nhảy tiếp theo (lùi lại overlap_segments_count để tạo overlap)
+                    next_i = j + 1 - overlap_segments_count
+                    if next_i <= i:
+                        next_i = i + 1
+                    i = next_i
+            else:
+                # Đối với tài liệu (PDF/DOCX): Chia nhỏ trang tài liệu thành các đoạn con ~200 từ, overlap 50 từ.
+                target_words = 200
+                overlap_words = 50
+                
+                for item in formatted_data:
+                    page_num = item['start'] # Page number được map sang 'start' ở trên
+                    text = item['text']
+                    words = text.split()
+                    
+                    if len(words) <= target_words:
+                        chunks_to_index.append((text, page_num))
+                    else:
+                        w_idx = 0
+                        total_w = len(words)
+                        while w_idx < total_w:
+                            sub_words = words[w_idx : w_idx + target_words]
+                            sub_text = " ".join(sub_words).strip()
+                            if sub_text:
+                                chunks_to_index.append((sub_text, page_num))
+                            w_idx += (target_words - overlap_words)
+            
+            # Tạo embedding và lưu vào cơ sở dữ liệu
+            for chunk_text, start_ref in chunks_to_index:
+                vector = await get_embedding(chunk_text)
+                new_chunk = VideoChunk(
+                    video_id=video_id,
+                    content=chunk_text,
+                    start_time=start_ref,
+                    embedding=vector
+                )
+                db.add(new_chunk)
+
+            # --- TRANSLATE TO VIETNAMESE (SIMULTANEOUS BACKGROUND TASK) ---
+            try:
+                from app.utils.ai import translate_transcript_list
+                from sqlalchemy.orm.attributes import flag_modified
+                
+                # Dịch đồng thời sang tiếng Việt ngay khi có transcript
+                translated_list = await translate_transcript_list(formatted_data, model_name="gpt-4o-mini")
+                
+                video.content_cache = {**(video.content_cache or {}), "translated_transcript": translated_list}
+                flag_modified(video, "content_cache")
+            except Exception as translate_err:
+                print(f"🔥 Auto-translation failed in background: {translate_err}")
             
         except Exception as e:
             print(f"🔥 Processing/RAG Error: {e}")

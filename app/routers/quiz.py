@@ -17,14 +17,32 @@ client = AsyncOpenAI(
 
 @router.post("/quiz/generate/{video_id}")
 async def generate_quiz(video_id: str, db: AsyncSession = Depends(get_db)):
-    # 1. Lấy video và transcript
+    # 1. Lấy video/tài liệu và transcript
     result = await db.execute(select(Video).where(Video.id == uuid.UUID(video_id)))
     video = result.scalar_one_or_none()
-    
-    if not video or video.status != "done":
-        raise HTTPException(400, "Video chưa sẵn sàng hoặc không tồn tại")
 
-    transcript_text = " ".join(s["text"] for s in (video.transcript or []))
+    if not video:
+        raise HTTPException(404, "Không tìm thấy tài liệu")
+
+    # Chấp nhận cả status 'done' và 'completed' (docx/pdf upload xong nhưng chưa transcribe)
+    if video.status not in ("done", "completed"):
+        raise HTTPException(400, f"Tài liệu chưa sẵn sàng (status: {video.status})")
+
+    # Lấy transcript text, xử lý các kiểu dữ liệu khác nhau
+    raw_transcript = video.transcript or []
+    if isinstance(raw_transcript, list):
+        transcript_text = " ".join(
+            item["text"] if isinstance(item, dict) else str(item)
+            for item in raw_transcript
+            if item
+        ).strip()
+    elif isinstance(raw_transcript, str):
+        transcript_text = raw_transcript.strip()
+    else:
+        transcript_text = ""
+
+    if not transcript_text:
+        raise HTTPException(400, "Tài liệu chưa có nội dung. Vui lòng trích xuất văn bản trước (nhấn nút Trích xuất).")
 
     # 2. Kiểm tra lịch sử câu sai
     attempts_result = await db.execute(
@@ -47,10 +65,10 @@ async def generate_quiz(video_id: str, db: AsyncSession = Depends(get_db)):
 
     # 3. Gọi AI tạo Quiz
     prompt = f"""
-Dựa trên nội dung video sau đây, hãy tạo 5 câu hỏi trắc nghiệm để kiểm tra kiến thức của người dùng.
+Dựa trên nội dung tài liệu sau đây, hãy tạo 5 câu hỏi trắc nghiệm để kiểm tra kiến thức của người dùng.
 Mỗi câu hỏi phải có 4 lựa chọn, 1 đáp án đúng và 1 câu giải thích ngắn gọn.
 
-Nội dung video: {transcript_text}
+Nội dung tài liệu: {transcript_text[:4000]}
 {wrong_context}
 
 Yêu cầu trả về DUY NHẤT định dạng JSON là một danh sách các object như sau:

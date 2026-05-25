@@ -85,8 +85,8 @@ Lưu ý:
                     yield content
 
             if full_plan:
-                from app.database import SessionLocal
-                async with SessionLocal() as new_db:
+                from app.database import AsyncSessionLocal
+                async with AsyncSessionLocal() as new_db:
                     res = await new_db.execute(select(Video).where(Video.id == video.id))
                     v = res.scalar_one()
                     new_c = {**(v.content_cache or {}), CACHE_KEY: full_plan}

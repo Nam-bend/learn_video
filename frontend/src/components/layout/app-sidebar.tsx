@@ -9,13 +9,8 @@ import {
   ChevronRight,
   Box,
   EllipsisVertical,
-  ThumbsUp,
-  BookOpen,
-  Smartphone,
-  Sparkles,
   ChevronsLeft,
   ChevronDown,
-  Globe,
   Video as VideoIcon,
   Trash2,
   Edit3,
@@ -96,36 +91,6 @@ function WorkspaceItem({ label, active }: { label: string; active?: boolean }) {
   )
 }
 
-function PromoCard() {
-  return (
-    <div className="relative mx-auto flex h-[210px] w-full cursor-pointer flex-col rounded-lg border bg-card p-3 pb-2 text-card-foreground shadow-sm">
-      <div className="flex flex-1 flex-col justify-center">
-        <div className="mb-0.5 flex items-center justify-between gap-2">
-          <h3 className="line-clamp-1 flex-1 text-sm font-medium leading-tight">
-            Tải ứng dụng YouLearn
-          </h3>
-          <span className="rounded bg-blue-50 px-1 py-0.5 text-[10px] text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">
-            Mới
-          </span>
-        </div>
-        <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-          Truy cập YouLearn mọi nơi và mọi lúc.
-        </p>
-      </div>
-      <div className="group relative mt-4 flex h-16 w-full items-center justify-center overflow-hidden rounded-lg bg-muted/20">
-        <Smartphone className="size-8 text-muted-foreground/40" />
-      </div>
-      <div className="mt-4 flex justify-between gap-2">
-        <button className="rounded-lg p-2 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground">
-          Miễn phí
-        </button>
-        <button className="rounded-lg p-2 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground">
-          Tìm hiểu thêm
-        </button>
-      </div>
-    </div>
-  )
-}
 
 function UserProfile() {
   return (
@@ -322,29 +287,6 @@ export function AppSidebar() {
               </div>
             </li>
 
-            <li className="w-full">
-              <button className={sectionLabelClass}>
-                <span>Thư viện của tôi</span>
-                <ChevronRight className="size-3.5 opacity-100 transition-all duration-200" />
-              </button>
-            </li>
-
-            <li className="pt-2">
-              <p className="mb-1 ml-2 text-sm font-normal text-primary/60 dark:text-primary/70">
-                Trợ giúp & Công cụ
-              </p>
-              <div className="flex flex-col space-y-[1px]">
-                <NavItem icon={ThumbsUp} label="Nhận xét" />
-                <NavItem icon={BookOpen} label="Hướng dẫn nhanh" greenDot />
-                <NavItem icon={Smartphone} label="Ứng dụng di động" badge="Mới" greenDot />
-                <NavItem icon={Globe} label="Tiện ích mở rộng Chrome" />
-                <NavItem icon={Sparkles} label="Tính năng mới" />
-              </div>
-            </li>
-
-            <li className="w-full grow">
-              <PromoCard />
-            </li>
           </ul>
         </nav>
       </SidebarContent>

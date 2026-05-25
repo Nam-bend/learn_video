@@ -26,10 +26,7 @@ async def get_summary(video_id: str, refresh: bool = False, db: AsyncSession = D
     # Return cached result if available
     cache = video.content_cache or {}
     if CACHE_KEY in cache and not refresh:
-        # Giả lập stream cho cache để frontend xử lý đồng nhất
-        async def cached_stream():
-            yield cache[CACHE_KEY]
-        return StreamingResponse(cached_stream(), media_type="text/plain")
+        return {"status": "cached", "summary": cache[CACHE_KEY]}
 
     transcript_text = " ".join(s["text"] for s in video.transcript)
 
@@ -75,8 +72,8 @@ Hãy trả lời bằng tiếng Việt, chi tiết và đầy đủ nhất có t
 
             # Sau khi kết thúc stream, lưu vào DB
             if full_summary:
-                from app.database import SessionLocal
-                async with SessionLocal() as new_db:
+                from app.database import AsyncSessionLocal
+                async with AsyncSessionLocal() as new_db:
                     # Lấy lại video object trong session mới
                     res = await new_db.execute(select(Video).where(Video.id == video.id))
                     v = res.scalar_one()
@@ -84,7 +81,7 @@ Hãy trả lời bằng tiếng Việt, chi tiết và đầy đủ nhất có t
                     await new_db.execute(update(Video).where(Video.id == v.id).values(content_cache=new_c))
                     await new_db.commit()
         except Exception as e:
-            print(f"🔥 Summary Stream Error: {e}")
+            print(f"[ERROR] Summary Stream Error: {e}")
             yield f"\n[Lỗi AI: {str(e)}]"
 
     return StreamingResponse(stream_generator(), media_type="text/plain")

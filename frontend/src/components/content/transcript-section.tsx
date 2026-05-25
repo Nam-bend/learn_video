@@ -8,13 +8,16 @@ import { api } from "@/lib/api"
 interface TranscriptSectionProps {
   videoId: string
   initialTranscript?: any
+  initialTranslatedTranscript?: any
 }
 
-export function TranscriptSection({ videoId, initialTranscript }: TranscriptSectionProps) {
+export function TranscriptSection({ videoId, initialTranscript, initialTranslatedTranscript }: TranscriptSectionProps) {
   const [activeTab, setActiveTab] = useState<"chapters" | "copy">("chapters")
   const [autoScroll, setAutoScroll] = useState(false)
   const [transcript, setTranscript] = useState<any[]>([])
+  const [translatedTranscript, setTranslatedTranscript] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [translating, setTranslating] = useState(false)
 
   // Sync with initialTranscript when it changes or on mount
   useEffect(() => {
@@ -22,6 +25,29 @@ export function TranscriptSection({ videoId, initialTranscript }: TranscriptSect
       setTranscript(Array.isArray(initialTranscript) ? initialTranscript : [])
     }
   }, [initialTranscript])
+
+  useEffect(() => {
+    if (initialTranslatedTranscript && initialTranslatedTranscript.length > 0) {
+      setTranslatedTranscript(Array.isArray(initialTranslatedTranscript) ? initialTranslatedTranscript : [])
+    }
+  }, [initialTranslatedTranscript])
+
+  const handleTabChange = async (tab: "chapters" | "copy") => {
+    setActiveTab(tab)
+    if (tab === "copy" && translatedTranscript.length === 0 && transcript.length > 0) {
+      setTranslating(true)
+      try {
+        const result = await api.videos.translate(videoId)
+        if (result && Array.isArray(result.translated_transcript)) {
+          setTranslatedTranscript(result.translated_transcript)
+        }
+      } catch (error) {
+        console.error("Failed to translate transcript:", error)
+      } finally {
+        setTranslating(false)
+      }
+    }
+  }
 
   const handleGenerate = async () => {
     if (!videoId) return
@@ -40,6 +66,9 @@ export function TranscriptSection({ videoId, initialTranscript }: TranscriptSect
             const videoData = await api.videos.get(videoId)
             if (videoData.status === "done" && videoData.transcript) {
               setTranscript(videoData.transcript)
+              if (videoData.translated_transcript) {
+                setTranslatedTranscript(videoData.translated_transcript)
+              }
               setLoading(false)
               clearInterval(pollInterval)
             } else if (videoData.status === "error") {
@@ -78,12 +107,14 @@ export function TranscriptSection({ videoId, initialTranscript }: TranscriptSect
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
+  const currentDisplayList = activeTab === "chapters" ? transcript : translatedTranscript
+
   return (
     <div className="mt-6 border-t border-neutral-100 pt-6">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-1 bg-neutral-100/50 p-1 rounded-xl">
           <button
-            onClick={() => setActiveTab("chapters")}
+            onClick={() => handleTabChange("chapters")}
             className={cn(
               "rounded-lg px-4 py-1.5 text-[13px] font-bold transition-all",
               activeTab === "chapters"
@@ -94,7 +125,7 @@ export function TranscriptSection({ videoId, initialTranscript }: TranscriptSect
             Nội dung
           </button>
           <button
-            onClick={() => setActiveTab("copy")}
+            onClick={() => handleTabChange("copy")}
             className={cn(
               "rounded-lg px-4 py-1.5 text-[13px] font-bold transition-all",
               activeTab === "copy"
@@ -102,7 +133,7 @@ export function TranscriptSection({ videoId, initialTranscript }: TranscriptSect
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
-            Bản sao
+            Bản dịch (Tiếng Việt)
           </button>
         </div>
         <div className="flex items-center gap-2">
@@ -137,9 +168,16 @@ export function TranscriptSection({ videoId, initialTranscript }: TranscriptSect
       </div>
 
       <div className="space-y-2">
-        {transcript && transcript.length > 0 ? (
+        {translating ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Loader2 className="size-8 text-emerald-500 animate-spin mb-3" />
+            <p className="text-[14px] text-muted-foreground">
+              Đang dịch bản sao sang tiếng Việt...
+            </p>
+          </div>
+        ) : currentDisplayList && currentDisplayList.length > 0 ? (
           <div className="grid gap-1">
-            {transcript.map((block, i) => (
+            {currentDisplayList.map((block, i) => (
               <div
                 key={`${block.start}-${i}`}
                 className="group flex gap-4 rounded-xl p-3 transition-all hover:bg-white hover:shadow-sm"
@@ -163,7 +201,7 @@ export function TranscriptSection({ videoId, initialTranscript }: TranscriptSect
               <FileText className="size-7 text-neutral-200" />
             </div>
             <p className="text-[14px] font-medium text-muted-foreground max-w-[200px]">
-              Chưa có bản ghi nào. Hãy nhấn nút "Tạo bản ghi" để bắt đầu.
+              {activeTab === "copy" ? "Chưa có bản dịch. Hãy bấm nút tạo bản ghi trước để dịch." : "Chưa có bản ghi nào. Hãy nhấn nút 'Tạo bản ghi' để bắt đầu."}
             </p>
           </div>
         )}

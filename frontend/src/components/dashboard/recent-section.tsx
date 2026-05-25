@@ -61,9 +61,11 @@ export function RecentSection() {
     <div className="w-full max-w-2xl animate-fade-in-up animate-delay-400">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-[15px] font-semibold text-foreground">Gần đây</h2>
-        <button className="text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground">
-          Xem tất cả
-        </button>
+        <Link href="/history">
+          <button className="text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground">
+            Xem tất cả
+          </button>
+        </Link>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {videos.map((video) => (

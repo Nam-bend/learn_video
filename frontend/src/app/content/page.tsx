@@ -47,14 +47,22 @@ function SidebarAwareHeader() {
 }
 
 import { useSearchParams } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { api } from "@/lib/api"
 
-export default function ContentPage() {
+function ContentPageInner() {
   const searchParams = useSearchParams()
   const videoId = searchParams.get("id")
   const [video, setVideo] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+
+  const isPdf = video?.media_type === "pdf" ||
+    video?.source_ref?.toLowerCase().endsWith(".pdf") ||
+    video?.title?.toLowerCase().endsWith(".pdf");
+  const isWord = video?.media_type === "docx" ||
+    video?.source_ref?.toLowerCase().endsWith(".docx") ||
+    video?.title?.toLowerCase().endsWith(".docx");
+  const isDoc = isPdf || isWord;
 
   useEffect(() => {
     if (!videoId) {
@@ -62,19 +70,63 @@ export default function ContentPage() {
       return
     }
 
-    const fetchVideo = async () => {
-      setLoading(true)
+    let pollInterval: ReturnType<typeof setInterval> | undefined = undefined
+
+    const fetchVideo = async (showLoading = true) => {
+      if (showLoading) setLoading(true)
       try {
         const data = await api.videos.get(videoId)
         setVideo(data)
+
+        const isDoc = data.media_type === "pdf" || data.media_type === "docx" ||
+          data.title?.toLowerCase().endsWith(".pdf") || data.title?.toLowerCase().endsWith(".docx") ||
+          data.source_ref?.toLowerCase().endsWith(".pdf") || data.source_ref?.toLowerCase().endsWith(".docx")
+
+        let currentStatus = data.status
+        const shouldTranscribe = isDoc &&
+          !data.transcript &&
+          data.status !== "transcribing" &&
+          data.status !== "error" &&
+          data.status !== "done"
+
+        // Tự động kích hoạt trích xuất văn bản (nếu chưa chạy)
+        if (shouldTranscribe) {
+          try {
+            await api.transcript.generate(videoId)
+            currentStatus = "transcribing"
+            // Cập nhật trạng thái tạm thời trên UI trước khi poll lần sau
+            setVideo((prev: any) => prev ? { ...prev, status: "transcribing" } : null)
+          } catch (e) {
+            console.error("Auto-transcribe generation failed:", e)
+          }
+        }
+
+        // Bắt đầu poll nếu đang trích xuất
+        if (currentStatus === "transcribing") {
+          if (!pollInterval) {
+            pollInterval = setInterval(() => {
+              fetchVideo(false)
+            }, 3000)
+          }
+        } else {
+          if (pollInterval) {
+            clearInterval(pollInterval)
+            pollInterval = undefined
+          }
+        }
       } catch (error) {
         console.error("Failed to fetch video:", error)
         setVideo(null)
       } finally {
-        setLoading(false)
+        if (showLoading) setLoading(false)
       }
     }
-    fetchVideo()
+
+    fetchVideo(true)
+
+    return () => {
+      if (pollInterval) clearInterval(pollInterval)
+    }
   }, [videoId])
 
   return (
@@ -88,28 +140,25 @@ export default function ContentPage() {
               <ContentHeader title={video?.title} />
               <SidebarAwareHeader />
             </div>
-            <div className="flex-1 overflow-y-auto">
+            <div className={`flex-1 ${isDoc ? "flex flex-col min-h-0 overflow-hidden" : "overflow-y-auto"}`}>
               {loading ? (
                 <div className="flex h-full items-center justify-center">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
                 </div>
               ) : video ? (
-                <div className="h-full">
+                <div className={isDoc ? "flex-1 min-h-0 flex flex-col" : "h-full"}>
                   {(() => {
-                    const isPdf = video?.media_type === "pdf" || 
-                                  video?.source_ref?.toLowerCase().endsWith(".pdf") ||
-                                  video?.title?.toLowerCase().endsWith(".pdf");
-                    const isWord = video?.media_type === "docx" || 
-                                   video?.source_ref?.toLowerCase().endsWith(".docx") ||
-                                   video?.title?.toLowerCase().endsWith(".docx");
-
                     if (isPdf) return <PdfWorkspace video={video} />;
                     if (isWord) return <WordWorkspace video={video} />;
-                    
+
                     return (
                       <div className="px-6 py-6">
                         <VideoPlayer video={video} />
-                        <TranscriptSection videoId={video.id} initialTranscript={video.transcript} />
+                        <TranscriptSection
+                          videoId={video.id}
+                          initialTranscript={video.transcript}
+                          initialTranslatedTranscript={video.translated_transcript}
+                        />
                       </div>
                     );
                   })()}
@@ -127,6 +176,18 @@ export default function ContentPage() {
         </div>
       </SidebarInset>
     </SidebarProvider>
+  )
+}
+
+export default function ContentPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen items-center justify-center bg-[#fafafa]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+      </div>
+    }>
+      <ContentPageInner />
+    </Suspense>
   )
 }
 

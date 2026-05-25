@@ -5,8 +5,8 @@ import { AppSidebar } from "@/components/layout/app-sidebar"
 import { HeaderActions } from "@/components/dashboard/header-actions"
 import { WelcomeSection } from "@/components/dashboard/welcome-section"
 import { FeatureCards } from "@/components/dashboard/feature-cards"
-import { SearchBar } from "@/components/dashboard/search-bar"
-import { WorkspaceSection } from "@/components/dashboard/workspace-section"
+import { UploadZone } from "@/components/dashboard/upload-zone"
+import { StatsSection } from "@/components/dashboard/stats-section"
 import { RecentSection } from "@/components/dashboard/recent-section"
 import { useSidebar } from "@/components/ui/sidebar"
 import { ChevronsRight } from "lucide-react"
@@ -55,11 +55,11 @@ export default function Home() {
           <div className="mx-auto flex max-w-3xl flex-col items-center gap-8 px-6 pb-10 pt-4 sm:px-8 sm:pb-14 sm:pt-6">
             <WelcomeSection />
             <FeatureCards />
-            <SearchBar />
+            <UploadZone />
             <div className="w-full max-w-2xl">
               <div className="h-px bg-gradient-to-r from-transparent via-neutral-200 to-transparent" />
             </div>
-            <WorkspaceSection />
+            <StatsSection />
             <RecentSection />
           </div>
         </div>

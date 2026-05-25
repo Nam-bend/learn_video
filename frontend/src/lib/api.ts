@@ -22,6 +22,9 @@ export const api = {
   videos: {
     list: () => fetchApi('/videos'),
     get: (id: string) => fetchApi(`/video-info/${id}`),
+    translate: (id: string) => fetchApi(`/video-info/${id}/translate`, {
+      method: 'POST',
+    }),
     create: (data: { title: string, source_type: string, source_ref: string }) => fetchApi('/video-info', {
       method: 'POST',
       body: JSON.stringify(data),

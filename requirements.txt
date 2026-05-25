@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+sqlalchemy
+aiosqlite
+pydantic-settings
+openai
+faster-whisper
+pdf-oxide
+python-multipart
+httpx
+asyncpg

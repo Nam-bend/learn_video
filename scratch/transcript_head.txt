@@ -1,0 +1,53 @@
+# TR??NG ??I H?C CONG NGH? GTVT
+
+# KHOA CONG NGH? THONG TIN
+
+PHUNG ?INH TR?NG NAM
+
+THI?T K? VA TRI?N KHAI H? TH?NG AI CHUY?N ??I N?I DUNG ?A ~~PH??NG TI?N THANH TAI LI?U H?C T?P~~
+
+
+# ?? AN T?T NGHI?P ??I H?C H? CHINH QUY
+
+Nghanh: Cong ngh? thong tin
+
+HA N?I 05 - 2026
+
+
+# ==> picture [480 x 644] intentionally omitted <==
+
+TR??NG ??I H?C CONG NGH? GIAO THONG V?N T?IBia KHOA CONG NGH? THONG TIN
+
+---------------------------
+
+
+...........................................
+
+Ha N?i, ngay thang n?m 2026 GI?NG VIEN H??NG D?N (ky, ghi ro h? ten)
+
+# NH?N XET C?A GI?NG VIEN PH?N BI?N
+
+(C?a gi?ng vien ph?n bi?n)
+
+.................................................................................................................................. .................................................................................................................................. .................................................................................................................................. .................................................................................................................................. .................................................................................................................................. .................................................................................................................................. .................................................................................................................................. .................................................................................................................................. .................................................................................................................................. .................................................................................................................................. ..................................................................................................................................
+
+?i?m:.............................................(b?ng ch?:............................................................)
+
+??ng y / Khong ??ng y cho sinh vien b?o v? tr??c h?i ??ng ch?m ?? an t?t nghi?p? ...........................................
+
+Ha N?i, ngay thang n?m 2026 GI?NG VIEN H??NG D?N
+
+(ky, ghi ro h? ten)
+
+
+Trong b?i c?nh cong ngh? thong tin phat tri?n m?nh m?, cac h? th?ng ph?n m?m ngay cang tr? nen ph?c t?p, ??c bi?t la cac ?ng d?ng web ph?c v? nhu c?u h?c t?p va ?ao t?o tr?c tuy?n. Cac h? th?ng qu?n ly h?c t?p tr?c tuy?n nh? LMS giup ng??i dung d? dang tim ki?m, ??ng ky va theo doi khoa h?c, ??ng th?i h? tr? qu?n tr? vien qu?n ly n?i dung ?ao t?o m?t cach hi?u qu?. ?i?u nay ??t ra yeu c?u cao v? ch?t l??ng ph?n m?m, tinh ?n ??nh c?a h? th?ng va kh? n?ng phat hi?n, x? ly l?i m?t cach nhanh chong, chinh xac.
+
+Ki?m th? ph?n m?m ?ong vai tro quan tr?ng trong qua trinh phat tri?n h? th?ng, ??c bi?t ??i v?i cac ?ng d?ng web co nhi?u ch?c n?ng t??ng tac gi?a ng??i dung va qu?n tr? vien. Ki?m th? th? cong tuy v?n c?n thi?t nh?ng t?n t?i nhi?u h?n ch? nh? t?n th?i gian, d? x?y ra sai sot va kho ?ap ?ng khi h? th?ng th??ng xuyen thay ??i. Do ?o, ki?m th? t? ??ng tr? thanh m?t gi?i phap phu h?p, giup nang cao hi?u qu? ki?m th?, gi?m th?i gian th?c hi?n va ??m b?o ch?t l??ng s?n ph?m.
+
+Trong s? cac cong c? h? tr? ki?m th? t? ??ng, Selenium WebDriver la m?t cong c? ph? bi?n, cho phep mo ph?ng hanh vi ng??i dung tren trinh duy?t nh? nh?p d? li?u, click chu?t, tim ki?m, ??ng ky va ki?m tra k?t qu? hi?n th?. Khi k?t h?p v?i ngon ng? l?p trinh Java, Selenium WebDriver giup xay d?ng cac k?ch b?n ki?m th? co c?u truc ro rang, d? b?o tri va phu h?p v?i ki?m th? giao di?n web.
+
+Xu?t phat t? th?c ti?n ?o, ?? tai "Xay d?ng va tri?n khai ki?m th? t? ??ng cho h? th?ng qu?n ly h?c t?p tr?c tuy?n LMS s? d?ng Selenium WebDriver v?i ngon ng? Java" ???c th?c hi?n nh?m nghien c?u ly thuy?t ki?m th? ph?n m?m, tim hi?u cong c? Selenium WebDriver va ap d?ng vao vi?c xay d?ng cac k?ch b?n ki?m th? t? ??ng cho h? th?ng LMS. ?? tai t?p trung ki?m th? cac ch?c n?ng chinh c?a h? th?ng nh? qu?n tr? vien t?o khoa h?c, ch?nh s?a khoa h?c, qu?n ly tr?ng thai khoa h?c, ng??i dung tim ki?m khoa h?c, ??ng ky khoa h?c, xem danh sach khoa h?c ?a ??ng ky va h?y ??ng ky khoa h?c.
+
+Thong qua qua trinh th?c hi?n, ?? tai khong ch? giup nang cao ki?n th?c va k? n?ng v? ki?m th? t? ??ng ma con gop ph?n minh ch?ng tinh hi?u qu? c?a vi?c ap d?ng Selenium WebDriver v?i Java trong ki?m th? cac h? th?ng web th?c t?. T? ?o, ?? tai h? tr? c?i thi?n ch?t l??ng ph?n m?m, gi?m thi?u l?i trong qua trinh v?n hanh va t?i ?u hoa quy trinh ki?m th? h? th?ng LMS.
+
+L?I C?M ?N Em xin phep g?i l?i c?m ?n ??n cac th?y co giao trong khoa Cong ngh? thong tin noi rieng, cung cac th?y co giao trong tr??ng ??i h?c Cong ngh? Giao thong v?n t?i noi chung, ?a nhi?t tinh ch? d?y, h??ng d?n va giup ?? em trong su?t b?n n?m g?n bo, h?c t?p t?i tr??ng. Va ??c bi?t la g

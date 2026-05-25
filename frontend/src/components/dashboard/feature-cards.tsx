@@ -32,14 +32,6 @@ const features = [
     iconBg: "bg-sky-50 group-hover:bg-gradient-to-br group-hover:from-sky-100 group-hover:to-indigo-100",
     type: "docx"
   },
-  {
-    icon: Link2,
-    label: "Liên kết",
-    description: "YouTube, Website...",
-    bgGlow: "group-hover:shadow-violet-200/60",
-    iconBg: "bg-violet-50 group-hover:bg-gradient-to-br group-hover:from-violet-100 group-hover:to-purple-100",
-    type: "link"
-  },
 ]
 
 interface FeatureCardProps {
@@ -110,6 +102,7 @@ function FeatureCard({
 export function FeatureCards() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(false)
+  const [activeType, setActiveType] = useState<string | null>(null)
   const router = useRouter()
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -119,7 +112,6 @@ export function FeatureCards() {
     setLoading(true)
     try {
       const result = await api.upload.file(file)
-      // Result should contain video id
       if (result.id) {
         router.push(`/content?id=${result.id}`)
       }
@@ -128,17 +120,13 @@ export function FeatureCards() {
       alert("Tải lên thất bại. Vui lòng thử lại.")
     } finally {
       setLoading(false)
+      setActiveType(null)
     }
   }
 
   const handleCardClick = (type: string) => {
-    if (type === "link") {
-      document.querySelector("input")?.focus()
-      return
-    }
-
     if (fileInputRef.current) {
-      // Set the appropriate accept filter based on the card type
+      setActiveType(type)
       if (type === "video") fileInputRef.current.accept = "video/*"
       else if (type === "pdf") fileInputRef.current.accept = ".pdf"
       else if (type === "docx") fileInputRef.current.accept = ".docx"
@@ -149,7 +137,7 @@ export function FeatureCards() {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 w-full max-w-2xl">
+    <div className="grid grid-cols-3 gap-3 sm:gap-4 w-full max-w-2xl">
       <input
         type="file"
         ref={fileInputRef}
@@ -160,12 +148,12 @@ export function FeatureCards() {
       {features.map((feature, i) => (
         <div
           key={feature.label}
-          className={cn("animate-fade-in-up", i === 1 && "animate-delay-100", i === 2 && "animate-delay-200", i === 3 && "animate-delay-300")}
+          className={cn("animate-fade-in-up", i === 1 && "animate-delay-100", i === 2 && "animate-delay-200")}
         >
           <FeatureCard
             {...feature}
             onClick={() => handleCardClick(feature.type)}
-            loading={feature.type === "upload" && loading}
+            loading={loading && activeType === feature.type}
           />
         </div>
       ))}
