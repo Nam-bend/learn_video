@@ -6,6 +6,7 @@ pydantic-settings
 openai
 faster-whisper
 pdf-oxide
+magic-pdf[full]
 python-multipart
 httpx
 asyncpg

@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils"
 import { useRef, useState } from "react"
 import { api } from "@/lib/api"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/AuthContext"
 
 const features = [
   {
@@ -104,6 +105,7 @@ export function FeatureCards() {
   const [loading, setLoading] = useState(false)
   const [activeType, setActiveType] = useState<string | null>(null)
   const router = useRouter()
+  const { userId, showAuthModal } = useAuth()
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -125,6 +127,11 @@ export function FeatureCards() {
   }
 
   const handleCardClick = (type: string) => {
+    if (!userId) {
+      showAuthModal('login')
+      return
+    }
+
     if (fileInputRef.current) {
       setActiveType(type)
       if (type === "video") fileInputRef.current.accept = "video/*"

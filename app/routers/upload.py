@@ -1,6 +1,6 @@
 import uuid, shutil
 from pathlib import Path
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database import get_db
@@ -9,7 +9,7 @@ from app.models import Video
 router = APIRouter()
 
 @router.post("/upload")
-async def upload_video(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+async def upload_video(file: UploadFile = File(...), db: AsyncSession = Depends(get_db), x_user_id: str = Header(None)):
     allowed_videos = {".mp4", ".mkv", ".avi", ".mov", ".webm"}
     allowed_docs = {".pdf", ".docx"}
     
@@ -32,9 +32,12 @@ async def upload_video(file: UploadFile = File(...), db: AsyncSession = Depends(
     with dest.open("wb") as f:
         shutil.copyfileobj(file.file, f)
 
+    user_uuid = uuid.UUID(x_user_id) if x_user_id else None
+
     # LƯU VÀO DATABASE
     new_video = Video(
         id=uuid.UUID(file_id),
+        user_id=user_uuid,
         media_type=media_type,
         source_type="local",
         source_ref=filename,

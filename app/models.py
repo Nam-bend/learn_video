@@ -5,10 +5,21 @@ from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    username: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    password: Mapped[str] = mapped_column(String(100)) # Simple plain text password
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    videos: Mapped[list["Video"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
 class Video(Base):
     __tablename__ = "videos"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
     media_type: Mapped[str] = mapped_column(String(20), default="video") # 'video' | 'pdf' | 'docx'
     source_type: Mapped[str] = mapped_column(String(10))   # 'local' | 'youtube'
     source_ref: Mapped[str] = mapped_column(Text)           # filename hoặc youtube_id
@@ -20,6 +31,7 @@ class Video(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    user: Mapped["User"] = relationship(back_populates="videos")
     messages: Mapped[list["ChatMessage"]] = relationship(back_populates="video", cascade="all, delete-orphan")
 
 

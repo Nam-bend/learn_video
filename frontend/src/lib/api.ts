@@ -2,23 +2,37 @@
 const API_BASE_URL = 'http://localhost:8000/api';
 
 export async function fetchApi(endpoint: string, options: RequestInit = {}) {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...options.headers as Record<string, string>,
+  };
+
+  if (typeof window !== 'undefined') {
+    const userId = localStorage.getItem('user_id');
+    if (userId) {
+      headers['x-user-id'] = userId;
+    }
+  }
+
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'API Request Failed' }));
-    throw new Error(error.message || 'API request failed');
+    const error = await response.json().catch(() => ({ message: 'API request failed' }));
+    throw new Error(error.detail || error.message || 'API request failed');
   }
 
   return response.json();
 }
 
 export const api = {
+  auth: {
+    login: (data: any) => fetchApi('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+    register: (data: any) => fetchApi('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
+    me: () => fetchApi('/auth/me'),
+  },
   videos: {
     list: () => fetchApi('/videos'),
     get: (id: string) => fetchApi(`/video-info/${id}`),
@@ -42,9 +56,16 @@ export const api = {
       const formData = new FormData();
       formData.append('file', file);
       
+      const headers: Record<string, string> = {};
+      if (typeof window !== 'undefined') {
+        const userId = localStorage.getItem('user_id');
+        if (userId) headers['x-user-id'] = userId;
+      }
+
       const response = await fetch(`${API_BASE_URL}/upload`, {
         method: 'POST',
         body: formData,
+        headers,
       });
 
       if (!response.ok) {

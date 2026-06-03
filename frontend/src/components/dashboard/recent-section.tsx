@@ -1,13 +1,15 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { BookOpen, Sparkles, Play, Clock, MoreHorizontal } from "lucide-react"
+import { BookOpen, Sparkles, Play, Clock, MoreHorizontal, FileText, File as FileIcon } from "lucide-react"
 import { api } from "@/lib/api"
 import Link from "next/link"
+import { useAuth } from "@/contexts/AuthContext"
 
 export function RecentSection() {
   const [videos, setVideos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const { userId, showAuthModal } = useAuth()
 
   useEffect(() => {
     const fetchVideos = async () => {
@@ -68,16 +70,28 @@ export function RecentSection() {
         </Link>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {videos.map((video) => (
+        {videos.map((video) => {
+          const isDocx = video.media_type === 'docx'
+          const isPdf = video.media_type === 'pdf'
+          const HoverIcon = isPdf ? FileIcon : (isDocx ? FileText : Play)
+          const sourceLabel = isPdf ? "Tài liệu PDF" : (isDocx ? "Tài liệu Word" : "Video")
+          
+          return (
           <Link
             key={video.id}
             href={`/content?id=${video.id}`}
+            onClick={(e) => {
+              if (!userId) {
+                e.preventDefault();
+                showAuthModal('login');
+              }
+            }}
             className="group relative flex flex-col overflow-hidden rounded-2xl border border-neutral-100 bg-white p-3 transition-all hover:border-emerald-200 hover:shadow-[0_8px_20px_-4px_rgba(16,185,129,0.08)]"
           >
             <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-neutral-100">
                <div className="absolute inset-0 flex items-center justify-center bg-neutral-900/5 transition-colors group-hover:bg-neutral-900/0">
                 <div className="flex size-10 items-center justify-center rounded-full bg-white/90 shadow-sm opacity-0 scale-90 transition-all group-hover:opacity-100 group-hover:scale-100">
-                  <Play className="size-4 text-emerald-600 fill-emerald-600 ml-0.5" />
+                  <HoverIcon className={`size-4 text-emerald-600 ${!isPdf && !isDocx ? 'fill-emerald-600 ml-0.5' : ''}`} />
                 </div>
               </div>
             </div>
@@ -89,10 +103,10 @@ export function RecentSection() {
                 <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Clock className="size-3" />
-                    15 phút
+                    Đã lưu
                   </span>
                   <span>•</span>
-                  <span>YouTube</span>
+                  <span>{sourceLabel}</span>
                 </div>
               </div>
               <button className="rounded-lg p-1 text-neutral-400 hover:bg-neutral-50 hover:text-foreground">
@@ -100,7 +114,7 @@ export function RecentSection() {
               </button>
             </div>
           </Link>
-        ))}
+        )})}
       </div>
     </div>
   )

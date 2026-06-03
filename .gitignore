@@ -21,3 +21,6 @@ tmp/uploads/*
 .vscode/
 .idea/
 .gemini/
+
+# MinerU Models and Config
+mineru_resources/

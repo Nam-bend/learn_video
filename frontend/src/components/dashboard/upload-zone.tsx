@@ -5,6 +5,7 @@ import { useState, useRef } from "react"
 import { api } from "@/lib/api"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/contexts/AuthContext"
 
 export function UploadZone() {
   const [isDragActive, setIsDragActive] = useState(false)
@@ -12,8 +13,13 @@ export function UploadZone() {
   const [uploadProgress, setUploadProgress] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
+  const { userId, showAuthModal } = useAuth()
 
   const handleUpload = async (file: File) => {
+    if (!userId) {
+      showAuthModal('login')
+      return
+    }
     // Validate file extension
     const ext = "." + file.name.split(".").pop()?.toLowerCase()
     const allowed = [".mp4", ".mkv", ".avi", ".mov", ".webm", ".pdf", ".docx"]
@@ -71,6 +77,11 @@ export function UploadZone() {
     e.stopPropagation()
     setIsDragActive(false)
 
+    if (!userId) {
+      showAuthModal('login')
+      return
+    }
+
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleUpload(e.dataTransfer.files[0])
     }
@@ -83,6 +94,10 @@ export function UploadZone() {
   }
 
   const onButtonClick = () => {
+    if (!userId) {
+      showAuthModal('login')
+      return
+    }
     fileInputRef.current?.click()
   }
 

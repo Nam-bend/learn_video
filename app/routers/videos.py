@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm.attributes import flag_modified
@@ -11,8 +11,10 @@ from app.config import settings
 router = APIRouter()
 
 @router.post("/video-info")
-async def create_video_info(payload: dict, db: AsyncSession = Depends(get_db)):
+async def create_video_info(payload: dict, db: AsyncSession = Depends(get_db), x_user_id: str = Header(None)):
+    user_uuid = uuid.UUID(x_user_id) if x_user_id else None
     video = Video(
+        user_id=user_uuid,
         source_type=payload.get("source_type", "local"),
         source_ref=payload.get("source_ref"),
         title=payload.get("title"),
@@ -41,15 +43,28 @@ async def get_video_info(video_id: str, db: AsyncSession = Depends(get_db)):
         "source_type": video.source_type,
         "source_ref": video.source_ref,
         "transcript": video.transcript,
-        "translated_transcript": translated
+        "translated_transcript": translated,
+        "media_type": video.media_type
     }
 
 @router.get("/videos")
-async def list_videos(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Video).order_by(Video.created_at.desc()))
+async def list_videos(db: AsyncSession = Depends(get_db), x_user_id: str = Header(None)):
+    if x_user_id:
+        result = await db.execute(select(Video).where(Video.user_id == uuid.UUID(x_user_id)).order_by(Video.created_at.desc()))
+    else:
+        # Backward compatibility for old videos without user_id
+        result = await db.execute(select(Video).where(Video.user_id.is_(None)).order_by(Video.created_at.desc()))
+        
     videos = result.scalars().all()
     return [
-        {"id": str(v.id), "title": v.title, "status": v.status, "source_type": v.source_type, "transcript": v.transcript}
+        {
+            "id": str(v.id), 
+            "title": v.title, 
+            "status": v.status, 
+            "source_type": v.source_type, 
+            "transcript": v.transcript,
+            "media_type": v.media_type
+        }
         for v in videos
     ]
 

@@ -12,6 +12,8 @@ import {
   ChevronsLeft,
   ChevronDown,
   Video as VideoIcon,
+  FileText,
+  File as FileIcon,
   Trash2,
   Edit3,
   MoreHorizontal
@@ -26,6 +28,7 @@ import {
 } from "@/components/ui/sidebar"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/contexts/AuthContext"
 
 const menuItemClass =
   "flex h-fit w-full items-center justify-start truncate rounded-lg p-2 text-sm font-medium text-primary/70 hover:bg-primary/5 hover:text-primary dark:text-primary/80 transition-colors"
@@ -93,15 +96,41 @@ function WorkspaceItem({ label, active }: { label: string; active?: boolean }) {
 
 
 function UserProfile() {
+  const { userId, username, logout, showAuthModal } = useAuth()
+  const [isOpen, setIsOpen] = useState(false)
+
+  useEffect(() => {
+    const handleClickOutside = () => setIsOpen(false)
+    window.addEventListener("click", handleClickOutside)
+    return () => window.removeEventListener("click", handleClickOutside)
+  }, [])
+
+  if (!userId) {
+    return (
+      <div className="mt-2 flex w-full flex-col px-4 mb-4">
+        <button
+          onClick={() => showAuthModal('login')}
+          className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 py-3 text-[13px] font-semibold text-white transition-all hover:shadow-[0_4px_14px_0_rgba(16,185,129,0.39)] hover:-translate-y-0.5"
+        >
+          Đăng nhập / Đăng ký
+        </button>
+      </div>
+    )
+  }
+
   return (
-    <div className="mt-2 flex w-full flex-col px-2">
-      <div className="flex flex-col items-center justify-center">
+    <div className="mt-2 flex w-full flex-col px-2 relative z-50">
+      <div className="flex flex-col items-center justify-center relative">
         <div className="flex min-w-[200px] justify-center space-x-1 rounded-t-lg border-l-[0.5px] border-r-[0.25px] border-t-[0.5px] border-[#3CB371]/50 bg-gradient-to-b from-[#3CB371]/10 to-[#3CB371]/5 px-6 py-[.5px] text-center text-xs font-normal text-[#3CB371] backdrop-blur-md dark:border-[#3CB371] dark:from-[#3CB371]/20 dark:to-[#3CB371]/5 dark:text-[#3CB371]">
           <p className="capitalize">free</p>
           <p>Kế hoạch</p>
         </div>
-        <div className="w-full">
+        <div className="w-full relative">
           <button
+            onClick={(e) => {
+              e.stopPropagation()
+              setIsOpen(!isOpen)
+            }}
             className={cn(
               "inline-flex h-fit w-full items-center justify-between truncate rounded-2xl border border-primary/10 bg-white px-3 py-3 text-left shadow-sm transition-colors duration-200 ease-in-out hover:bg-primary/5 dark:border-primary/20 dark:bg-transparent dark:hover:bg-primary/10"
             )}
@@ -109,17 +138,35 @@ function UserProfile() {
             <div className="flex min-w-0 flex-1 items-center">
               <Avatar className="size-6 shrink-0 border border-primary/10 dark:border-primary/20">
                 <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-[10px] font-semibold">
-                  N
+                  {username ? username.charAt(0).toUpperCase() : "U"}
                 </AvatarFallback>
               </Avatar>
               <div className="ml-[-3px] flex min-w-0 flex-1 flex-col">
-                <p className="truncate text-sm font-medium leading-tight">
-                  Nam
+                <p className="truncate text-sm font-medium leading-tight ml-2">
+                  {username || "User"}
                 </p>
               </div>
             </div>
-            <ChevronDown className="size-4 shrink-0" />
+            <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-200", isOpen && "rotate-180")} />
           </button>
+
+          {isOpen && (
+            <div
+              className="absolute bottom-[calc(100%+8px)] left-0 w-full rounded-xl border bg-white p-1.5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] animate-in fade-in zoom-in-95 duration-100 dark:bg-[#2A2A2A] dark:border-neutral-800"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => {
+                  setIsOpen(false)
+                  logout()
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2.5 text-left text-[13px] font-medium text-rose-500 hover:bg-rose-50/50 transition-colors"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                <span>Đăng xuất</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -156,6 +203,12 @@ export function AppSidebar() {
       try {
         await api.videos.delete(id)
         setRecentVideos(prev => prev.filter(v => v.id !== id))
+
+        // Nếu đang ở trang xem video và vừa xóa chính video đó -> quay về màn hình thêm mới
+        const currentUrl = new URL(window.location.href)
+        if (currentUrl.pathname === '/content' && currentUrl.searchParams.get('id') === id) {
+          window.location.href = '/'
+        }
       } catch (err) {
         alert("Không thể xóa video")
       }
@@ -236,11 +289,16 @@ export function AppSidebar() {
               </button>
               <div className="mt-1 flex w-full flex-col space-y-[1px] px-1">
                 {recentVideos.length > 0 ? (
-                  recentVideos.map((video) => (
+                  recentVideos.map((video) => {
+                    let Icon = VideoIcon
+                    if (video.media_type === 'pdf') Icon = FileIcon
+                    else if (video.media_type === 'docx') Icon = FileText
+
+                    return (
                     <div key={video.id} className="group relative">
                       <Link href={`/content?id=${video.id}`} className="block w-full">
                         <button className={cn(menuItemClass, "h-9 py-1 pr-10")}>
-                          <VideoIcon className="mr-2 size-3.5 shrink-0 text-primary/50 group-hover:text-primary" />
+                          <Icon className="mr-2 size-3.5 shrink-0 text-primary/50 group-hover:text-primary" />
                           <span className="truncate text-[13px]">{video.title || "Chưa có tiêu đề"}</span>
                         </button>
                       </Link>
@@ -280,7 +338,7 @@ export function AppSidebar() {
                         </div>
                       )}
                     </div>
-                  ))
+                  )})
                 ) : (
                   <p className="px-3 py-2 text-[12px] text-muted-foreground italic">Chưa có video nào</p>
                 )}

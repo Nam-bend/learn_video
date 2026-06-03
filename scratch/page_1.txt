@@ -1,3 +1,0 @@
-3.2.6. Biểu đồ lớp (Class Diagram) 
-
-Biểu đồ lớp dưới đây thể hiện cấu trúc các thực thể (Entities) trong hệ thống và mối quan hệ giữa chúng.

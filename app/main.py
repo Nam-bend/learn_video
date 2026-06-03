@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from sqlalchemy import text
 from app.database import engine, Base
-from app.routers import upload, videos, transcript, chat, quiz, summary, flashcards, notes, study_plan
+from app.routers import upload, videos, transcript, chat, quiz, summary, flashcards, notes, study_plan, auth
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -33,6 +33,7 @@ app.include_router(summary.router,     prefix="/api")
 app.include_router(flashcards.router,  prefix="/api")
 app.include_router(notes.router,       prefix="/api")
 app.include_router(study_plan.router,  prefix="/api")
+app.include_router(auth.router,        prefix="/api")
 
 @app.get("/")
 async def root():
