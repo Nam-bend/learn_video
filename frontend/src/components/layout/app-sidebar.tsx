@@ -344,7 +344,6 @@ export function AppSidebar() {
                 )}
               </div>
             </li>
-
           </ul>
         </nav>
       </SidebarContent>

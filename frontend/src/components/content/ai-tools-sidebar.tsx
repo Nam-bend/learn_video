@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils"
 const tools = [
   { id: "export", icon: Download, label: "Xuất PDF", description: "Lưu tài liệu học tập" },
   { id: "history", icon: History, label: "Lịch sử Quiz", description: "Xem kết quả lần trước" },
-  { id: "summary", icon: FileText, label: "Tóm tắt nội dung", description: "Tóm tắt các ý chính" },
+  { id: "summary", icon: FileText, label: "Tóm tắt chi tiết", description: "Tóm tắt các ý chính" },
   { id: "quiz", icon: HelpCircle, label: "Câu hỏi trắc nghiệm", description: "Kiểm tra kiến thức" },
   { id: "flashcard", icon: Layers, label: "Thẻ Flashcard", description: "Ghi nhớ từ vựng, khái niệm" },
   { id: "notes", icon: StickyNote, label: "Ghi chú cá nhân", description: "Soạn thảo văn bản và dán ảnh" },
@@ -1550,17 +1550,24 @@ export function AiToolsSidebar({ videoId }: { videoId: string }) {
       {/* Tool View */}
       <div className={cn("flex-col h-full", activeTool ? "flex" : "hidden")}>
         {activeTool && (
-          <div className="flex shrink-0 items-center gap-2 border-b border-neutral-100 px-4 py-3">
-            <button onClick={() => setActiveTool(null)}
-              className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-neutral-100 hover:text-foreground">
-              <ChevronLeft className="size-4" />Tab Học
-            </button>
-            <div className="ml-1 flex items-center gap-2">
-              <div className="flex size-6 items-center justify-center rounded-md bg-gradient-to-br from-emerald-50 to-teal-50 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.15)]">
-                <activeTool.icon className="size-3.5 text-emerald-600" />
-              </div>
-              <span className="text-[14px] font-semibold text-foreground">{activeTool.label}</span>
+          <div className="flex shrink-0 items-end gap-1 border-b border-neutral-200 px-3 pt-3 bg-[#fafafa]">
+            <div className="flex items-center gap-2 rounded-t-xl bg-white px-4 py-2 text-[13px] font-medium text-emerald-600 border border-b-0 border-neutral-200 shadow-[0_-2px_4px_rgba(0,0,0,0.02)]">
+              <div className="size-2 rounded-full bg-emerald-500" />
+              <span>{activeTool.label}</span>
+              <button 
+                onClick={(e) => { e.stopPropagation(); setActiveTool(null) }}
+                className="ml-2 rounded-md p-0.5 hover:bg-neutral-100 transition-colors"
+              >
+                <X className="size-3.5" />
+              </button>
             </div>
+            <button 
+              onClick={() => setActiveTool(null)}
+              className="flex items-center gap-1.5 rounded-t-xl px-4 py-2 text-[13px] font-medium text-muted-foreground hover:bg-neutral-100/50 transition-colors"
+            >
+              <Plus className="size-3.5" />
+              <span>Tab Học</span>
+            </button>
           </div>
         )}
 
