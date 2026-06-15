@@ -1,0 +1,18 @@
+{
+  "models-dir": "C:/devWeb/learn_video/mineru_resources/models",
+  "device-mode": "cpu",
+  "layout-config": {
+    "model": "layoutlmv3"
+  },
+  "formula-config": {
+    "mfd_model": "yolo_v8_mfd",
+    "mfr_model": "unimernet_small",
+    "enable": true
+  },
+  "table-config": {
+    "model": "rapid_table",
+    "enable": true,
+    "max_time": 400
+  },
+  "config_version": "1.0.0"
+}

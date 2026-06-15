@@ -2,6 +2,7 @@
 
 import { Play, FileText } from "lucide-react"
 import { useEffect, useRef } from "react"
+import { BACKEND_URL } from "@/lib/api"
 
 export function VideoPlayer({ video }: { video: any }) {
   const isYoutube = video.source_type === "youtube" || video.source_ref?.includes("youtube.com") || video.source_ref?.includes("youtu.be")
@@ -51,7 +52,7 @@ export function VideoPlayer({ video }: { video: any }) {
           ref={videoRef}
           controls
           className="h-full w-full"
-          src={`http://localhost:8000/api/uploads/${video.source_ref}`}
+          src={`${BACKEND_URL}/api/uploads/${video.source_ref}`}
         />
       ) : (video.media_type === "pdf" || video.media_type === "docx") ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50">

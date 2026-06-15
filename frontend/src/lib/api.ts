@@ -1,5 +1,5 @@
-
-const API_BASE_URL = 'http://localhost:8000/api';
+export const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+export const API_BASE_URL = `${BACKEND_URL}/api`;
 
 export async function fetchApi(endpoint: string, options: RequestInit = {}) {
   const headers: Record<string, string> = {

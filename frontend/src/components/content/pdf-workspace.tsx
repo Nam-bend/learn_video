@@ -3,6 +3,7 @@
 import { FileText, Search, ZoomIn, ZoomOut, MousePointer2, ExternalLink, Download, MessageSquarePlus, CheckCircle2 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
+import { BACKEND_URL } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 
 interface PdfWorkspaceProps {
@@ -49,7 +50,7 @@ export function PdfWorkspace({ video }: PdfWorkspaceProps) {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const pdfUrlBase = video.source_ref ? `http://localhost:8000/api/uploads/${video.source_ref}` : null
+  const pdfUrlBase = video.source_ref ? `${BACKEND_URL}/api/uploads/${video.source_ref}` : null
   const pdfUrl = pdfUrlBase
     ? (currentPage
         ? `${pdfUrlBase}#page=${currentPage}&toolbar=0&view=FitH`

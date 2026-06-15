@@ -23,4 +23,5 @@ tmp/uploads/*
 .gemini/
 
 # MinerU Models and Config
-mineru_resources/
+mineru_resources/models/
+mineru_resources/.cache/

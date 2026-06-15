@@ -7,7 +7,7 @@ import {
   Mic, Loader2, User, Bot, History, CheckCircle2, XCircle, Trophy,
   RefreshCw, BarChart3, Download
 } from "lucide-react"
-import { api } from "@/lib/api"
+import { api, API_BASE_URL } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
 const tools = [
@@ -322,7 +322,7 @@ function SummaryView({ videoId }: { videoId: string }) {
     setSummary("")
     setStreaming(false)
     try {
-      const response = await fetch(`http://localhost:8000/api/summary/${videoId}${refresh ? "?refresh=true" : ""}`, { signal: ctrl.signal })
+      const response = await fetch(`${API_BASE_URL}/summary/${videoId}${refresh ? "?refresh=true" : ""}`, { signal: ctrl.signal })
       if (!response.ok) throw new Error("API failed")
 
       // Check if response is cached JSON to display instantly
@@ -523,7 +523,7 @@ function AiContentView({
     setStreaming(false)
     try {
       const endpoint = dataKey === "plan" ? `/study-plan/${videoId}` : `/${dataKey}/${videoId}`
-      const response = await fetch(`http://localhost:8000/api${endpoint}${refresh ? "?refresh=true" : ""}`, { signal: ctrl.signal })
+      const response = await fetch(`${API_BASE_URL}${endpoint}${refresh ? "?refresh=true" : ""}`, { signal: ctrl.signal })
 
       if (!response.ok) throw new Error("API failed")
 
@@ -869,9 +869,9 @@ function ExportPdfView({ videoId }: { videoId: string }) {
     setPhase("loading")
     try {
       const [summaryText, notesData, planText] = await Promise.all([
-        includeSummary ? fetchText(`http://localhost:8000/api/summary/${videoId}`) : Promise.resolve(""),
+        includeSummary ? fetchText(`${API_BASE_URL}/summary/${videoId}`) : Promise.resolve(""),
         includeNotes ? api.notes.get(videoId).catch(() => ({ notes: "" })) : Promise.resolve({ notes: "" }),
-        includeStudyPlan ? fetchText(`http://localhost:8000/api/study-plan/${videoId}`) : Promise.resolve(""),
+        includeStudyPlan ? fetchText(`${API_BASE_URL}/study-plan/${videoId}`) : Promise.resolve(""),
       ])
 
       let md = `# Tài Liệu Học Tập\n*Ngày tạo: ${new Date().toLocaleDateString('vi-VN')}*\n\n`
@@ -906,9 +906,9 @@ function ExportPdfView({ videoId }: { videoId: string }) {
     setPhase("loading")
     try {
       const [summaryText, notesData, planText] = await Promise.all([
-        includeSummary ? fetchText(`http://localhost:8000/api/summary/${videoId}`) : Promise.resolve(""),
+        includeSummary ? fetchText(`${API_BASE_URL}/summary/${videoId}`) : Promise.resolve(""),
         includeNotes ? api.notes.get(videoId).catch(() => ({ notes: "" })) : Promise.resolve({ notes: "" }),
-        includeStudyPlan ? fetchText(`http://localhost:8000/api/study-plan/${videoId}`) : Promise.resolve(""),
+        includeStudyPlan ? fetchText(`${API_BASE_URL}/study-plan/${videoId}`) : Promise.resolve(""),
       ])
       setSummary(summaryText)
       setNotes(notesData.notes || "")
@@ -1278,7 +1278,7 @@ function ChatView({ videoId }: { videoId: string }) {
     setMessages(p => [...p, { role: "assistant", content: "AI_THINKING" }])
 
     try {
-      const response = await fetch(`http://localhost:8000/api/chat/${videoId}`, {
+      const response = await fetch(`${API_BASE_URL}/chat/${videoId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: content }),

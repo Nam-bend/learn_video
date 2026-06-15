@@ -7,7 +7,28 @@ import xml.etree.ElementTree as ET
 import shutil
 
 # Gắn đường dẫn cấu hình để MinerU sử dụng cấu hình cục bộ trong dự án
-os.environ["MINERU_TOOLS_CONFIG_JSON"] = r"c:\devWeb\learn_video\mineru_resources\magic-pdf.json"
+import json
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+mineru_dir = BASE_DIR / "mineru_resources"
+config_path = mineru_dir / "magic-pdf.json"
+
+if config_path.exists():
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        
+        # Cập nhật đường dẫn tuyệt đối động đến thư mục models của máy hiện tại
+        expected_models_dir = str((mineru_dir / "models").resolve()).replace("\\", "/")
+        if config.get("models-dir") != expected_models_dir:
+            config["models-dir"] = expected_models_dir
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(config, f, indent=2, ensure_ascii=False)
+            print(f"[MinerU] Đã cập nhật động models-dir thành: {expected_models_dir}")
+    except Exception as e:
+        print(f"[MinerU] Cảnh báo không thể cập nhật magic-pdf.json: {e}")
+
+os.environ["MINERU_TOOLS_CONFIG_JSON"] = str(config_path)
 
 def extract_text_from_pdf(file_path: str):
     """

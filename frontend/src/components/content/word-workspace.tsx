@@ -4,6 +4,7 @@ import { FileText, Download, MessageSquarePlus, CheckCircle2, ZoomIn, ZoomOut, L
 import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import mammoth from "mammoth"
+import { BACKEND_URL } from "@/lib/api"
 
 interface WordWorkspaceProps {
   video: {
@@ -22,7 +23,7 @@ export function WordWorkspace({ video }: WordWorkspaceProps) {
   const [isConverting, setIsConverting] = useState(false)
   const [convertError, setConvertError] = useState<string | null>(null)
 
-  const docUrl = video.source_ref ? `http://localhost:8000/api/uploads/${video.source_ref}` : null
+  const docUrl = video.source_ref ? `${BACKEND_URL}/api/uploads/${video.source_ref}` : null
 
   // Process raw text for AI Chat
   const pages = useMemo(() => {
